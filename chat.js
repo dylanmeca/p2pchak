@@ -1,15 +1,22 @@
-/* chat.js — p2pchat completo
-   - PeerJS P2P
-   - ID propio de 5 caracteres (alfanumérico mayúsculas+digitos)
-   - reintentos si el ID está en uso
-   - mensajes: ack, read, sync
-   - historial localStorage por par
-   - archivos (dataURL y chunks)
-   - animaciones: typing wave y streaming/typewriter para mensajes
-   - al desconectar: envio de comando reload y recarga local/remota
+/* chat.js — p2pchat completo (versión integrada)
+   Incluye TODOS los cambios solicitados hasta ahora:
+   - ID propio: 5 caracteres (MAYÚSCULAS y dígitos) con reintentos si está en uso
+   - PeerJS P2P (connect, accept, close, error)
+   - ack / read / sync (receipts)
+   - historial por par en localStorage
+   - archivos: dataURL y transferencia por chunks
+   - file-card (archivo mostrado como tarjeta, no en burbuja)
+   - animaciones:
+       * typing (ondas de 3 puntos)
+       * incoming: typewriter
+       * outgoing: streaming/typewriter local
+   - desconectar: envía comando reload al par y recarga local
+   - textarea autosize, Enter = newline, Ctrl/Cmd+Enter => enviar
+   - typing debounced por input
+   - compatibilidad responsive / mobile (parte CSS)
 */
 
-/* ---------------------------- selectors ---------------------------- */
+/* ---------------------------- Selectores ---------------------------- */
 const myIdEl = document.getElementById('myId');
 const peerIdInput = document.getElementById('peerIdInput');
 const connectBtn = document.getElementById('connectBtn');
@@ -17,35 +24,34 @@ const disconnectBtn = document.getElementById('disconnectBtn');
 const statusText = document.getElementById('statusText');
 const messagesEl = document.getElementById('messages');
 const messagesArea = document.getElementById('messagesArea');
-const messageInput = document.getElementById('messageInput');
+const messageInput = document.getElementById('messageInput'); // ahora es <textarea>
 const sendBtn = document.getElementById('sendBtn');
 const attachBtn = document.getElementById('attachBtn');
 const fileInput = document.getElementById('fileInput');
 const typingIndicator = document.getElementById('typingIndicator');
 
+/* ---------------------------- Estado ---------------------------- */
 let peer = null;
 let conn = null;
 let currentPeerId = null;
-let typingSendDebounce = null;
 let messageHistory = []; // {id, text, ts, me, status, meta}
-
 const HISTORY_PREFIX = 'p2pchat_history_';
 const CHUNK_SIZE = 512 * 1024; // 512KB
 
-/* ---------------------------- util IDs ---------------------------- */
-/* genera ID para Peer (5 chars, alfanum, MAYÚSCULAS y dígitos) */
+/* ---------------------------- Util: IDs ---------------------------- */
+/* Peer ID: 5 chars, uppercase alphanumeric (digits + A-Z) */
 function generatePeerId() {
   const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
   let id = '';
   for (let i = 0; i < 5; i++) id += chars.charAt(Math.floor(Math.random() * chars.length));
   return id;
 }
-/* id para mensajes (único, más largo) */
+/* Message ID: unique-ish */
 function genMessageId() {
   return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 9);
 }
 
-/* ---------------------------- storage ---------------------------- */
+/* ---------------------------- Storage ---------------------------- */
 function loadHistory(peerId) {
   const key = HISTORY_PREFIX + (peerId || 'local');
   try {
@@ -61,11 +67,11 @@ function saveHistory(peerId) {
 }
 
 /* ---------------------------- UI helpers ---------------------------- */
-function setStatus(text) { statusText.textContent = text; }
+function setStatus(text) { if (statusText) statusText.textContent = text; }
 function addSystem(text) {
   const el = document.createElement('div');
   el.className = 'message in';
-  el.style.opacity = 0.75;
+  el.style.opacity = 0.8;
   el.style.fontSize = '13px';
   el.style.background = 'transparent';
   el.style.border = '0';
@@ -74,20 +80,21 @@ function addSystem(text) {
   messagesArea.scrollTop = messagesArea.scrollHeight;
 }
 
-/* ---------------------------- Peer creation with retry ---------------------------- */
+/* ---------------------------- Peer creation + retry ---------------------------- */
 function createPeerWithRandomId(maxRetries = 3) {
   const desiredId = generatePeerId();
-  try { if (peer && typeof peer.destroy === 'function') peer.destroy(); } catch (e) { }
+  try { if (peer && typeof peer.destroy === 'function') peer.destroy(); } catch (e) { /* ignore */ }
   peer = new Peer(desiredId);
 
   peer.on('open', id => {
-    myIdEl.textContent = id;
+    if (myIdEl) myIdEl.textContent = id;
     setStatus('Listo — Esperando conexión');
     loadHistory(null);
     renderMessages();
   });
 
   peer.on('connection', c => {
+    // aceptar la primera conexión entrante
     if (conn) {
       c.on('open', () => c.send({ type: 'system', text: 'already_connected' }));
       return;
@@ -122,18 +129,17 @@ function initPeer() {
 function bindConnection(c) {
   conn = c;
   currentPeerId = c.peer;
-  peerIdInput.value = currentPeerId;
-  connectBtn.hidden = true;
-  disconnectBtn.hidden = false;
+  if (peerIdInput) peerIdInput.value = currentPeerId;
+  if (connectBtn) connectBtn.hidden = true;
+  if (disconnectBtn) disconnectBtn.hidden = false;
   setStatus('Conectado con ' + currentPeerId);
 
-  // cargar historial y mostrar
+  // cargar historial de este par
   loadHistory(currentPeerId);
   renderMessages();
 
   c.on('data', handleIncoming);
   c.on('open', () => {
-    // sincronizar: enviar init y pedir sync
     safeSend({ type: 'init', id: peer.id });
     safeSend({ type: 'sync_request' });
   });
@@ -144,13 +150,13 @@ function bindConnection(c) {
   c.on('error', err => { console.error('conn err', err); addSystem('Error en la conexión'); });
 }
 
-/* ---------------------------- Connection helpers ---------------------------- */
+/* ---------------------------- Connect / reset ---------------------------- */
 function connectToPeer(id) {
   if (!peer || peer.disconnected) initPeer();
   if (!id) return;
   const c = peer.connect(id, { reliable: true });
   c.on('open', () => bindConnection(c));
-  c.on('error', err => { console.error(err); addSystem('Error de conexión') });
+  c.on('error', err => { console.error(err); addSystem('Error de conexión'); });
 }
 
 function resetConnection() {
@@ -158,26 +164,27 @@ function resetConnection() {
     try { conn.close(); } catch (e) { /* ignore */ }
   }
   conn = null; currentPeerId = null;
-  connectBtn.hidden = false; disconnectBtn.hidden = true;
-  peerIdInput.value = '';
+  if (connectBtn) connectBtn.hidden = false;
+  if (disconnectBtn) disconnectBtn.hidden = true;
+  if (peerIdInput) peerIdInput.value = '';
   setStatus('Desconectado');
 }
 
-/* ---------------------------- Message handling ---------------------------- */
+/* ---------------------------- Messaging core ---------------------------- */
 function handleIncoming(msg) {
   if (!msg) return;
   switch (msg.type) {
     case 'init':
-      peerIdInput.value = msg.id; addSystem('Conectado con ' + msg.id);
+      if (peerIdInput) peerIdInput.value = msg.id;
+      addSystem('Conectado con ' + msg.id);
       break;
     case 'typing':
       if (msg.state === 'start') showTyping(true);
       else showTyping(false);
       break;
     case 'message':
-      // enviar ack inmediato para confirmar recepción
+      // confirmar recepción (ack)
       safeSend({ type: 'ack', id: msg.id });
-      // animar y guardar
       addRemoteMessage(msg);
       break;
     case 'ack':
@@ -187,7 +194,6 @@ function handleIncoming(msg) {
       markMessageStatus(msg.id, 'read');
       break;
     case 'file':
-      // archivo pequeño
       addFileMessage(msg, false);
       safeSend({ type: 'ack', id: msg.id });
       break;
@@ -203,7 +209,6 @@ function handleIncoming(msg) {
       if (Array.isArray(msg.ids)) msg.ids.forEach(id => markMessageStatus(id, 'delivered'));
       break;
     case 'system':
-      // comandos remotos
       if (msg.cmd === 'reload') {
         addSystem('El par ha solicitado recargar la página. Recargando...');
         setTimeout(() => {
@@ -219,7 +224,6 @@ function handleIncoming(msg) {
   }
 }
 
-/* safe send por datachannel */
 function safeSend(obj) {
   if (!conn || conn.open === false) { addSystem('No hay conexión abierta'); return false; }
   try { conn.send(obj); return true; } catch (e) { console.error(e); addSystem('Fallo al enviar'); return false; }
@@ -235,7 +239,7 @@ function markMessageStatus(id, status) {
   if (!m) return;
   m.status = status;
   saveHistory(currentPeerId || null);
-  // actualizar vista si el mensaje ya está presente
+  // actualizar DOM si existe
   const dom = messagesEl.querySelector(`[data-msgid="${id}"]`);
   if (dom) {
     const small = dom.querySelector('small');
@@ -243,30 +247,31 @@ function markMessageStatus(id, status) {
   }
 }
 
-/* ---------------------------- Render full history (fallback / load) ---------------------------- */
+/* ---------------------------- Render (history fallback) ---------------------------- */
 function renderMessages() {
   messagesEl.innerHTML = '';
   for (const m of messageHistory) {
+    if (m.meta && m.meta.file) {
+      // si es archivo, render file-card (compatible con parche CSS)
+      renderFileCardFromEntry(m);
+      continue;
+    }
     const wrap = document.createElement('div');
     wrap.className = 'message ' + (m.me ? 'out' : 'in');
     wrap.setAttribute('data-msgid', m.id);
 
-    if (m.meta && m.meta.file && m.meta.file.dataUrl && m.meta.file.mime && m.meta.file.mime.startsWith('image/')) {
-      const img = document.createElement('img');
-      img.src = m.meta.file.dataUrl;
-      img.style.maxWidth = '420px';
-      wrap.appendChild(img);
-    } else {
-      const p = document.createElement('div');
-      p.className = 'message-body';
-      p.innerText = m.text || '';
-      wrap.appendChild(p);
-    }
+    const body = document.createElement('div');
+    body.className = 'message-body';
+    const span = document.createElement('span');
+    span.className = 'stream-text';
+    span.textContent = m.text || '';
+    body.appendChild(span);
+    wrap.appendChild(body);
 
     const meta = document.createElement('small');
     meta.style.display = 'block';
     meta.style.marginTop = '8px';
-    meta.style.color = 'var(--text-muted)';
+    meta.style.color = 'var(--meta-color)';
     meta.textContent = new Date(m.ts || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     if (m.me) meta.textContent += ' · ' + (m.status || '');
     wrap.appendChild(meta);
@@ -277,7 +282,6 @@ function renderMessages() {
 }
 
 /* ---------------------------- Animations: typewriter / streaming ---------------------------- */
-/* escribe texto carácter a carácter dentro de un span */
 function typeText(spanEl, text, speed = 18) {
   return new Promise((resolve) => {
     spanEl.textContent = '';
@@ -296,12 +300,11 @@ function typeText(spanEl, text, speed = 18) {
   });
 }
 
-/* crea DOM de burbuja animada y la retorna */
 function createBubbleDOM({ text = '', me = false }) {
   const wrap = document.createElement('div');
   wrap.className = 'message ' + (me ? 'out' : 'in');
   wrap.style.opacity = '0.995';
-  // body con span para streaming
+
   const body = document.createElement('div');
   body.className = 'message-body';
   const textSpan = document.createElement('span');
@@ -312,7 +315,7 @@ function createBubbleDOM({ text = '', me = false }) {
   const meta = document.createElement('small');
   meta.style.display = 'block';
   meta.style.marginTop = '8px';
-  meta.style.color = 'var(--text-muted)';
+  meta.style.color = 'var(--meta-color)';
   meta.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   wrap.appendChild(meta);
 
@@ -321,58 +324,43 @@ function createBubbleDOM({ text = '', me = false }) {
   return { wrap, textSpan, meta };
 }
 
-/* animar entrada entrante (typewriter) */
 async function animateIncomingMessage(msg) {
-  // ocultar typing global
   showTyping(false);
-
   const { wrap, textSpan, meta } = createBubbleDOM({ me: false });
-  // pequeña pausa natural
   await new Promise(r => setTimeout(r, 220));
-  // typewriter
   await typeText(textSpan, msg.text || '', 16);
 
-  // después de escribir, asignar id y actualizar estado visual
   const id = msg.id || genMessageId();
   wrap.setAttribute('data-msgid', id);
   meta.textContent = new Date(msg.ts || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-  // añadir al historial si no existe
   if (!messageHistory.some(m => m.id === id && !m.me)) {
     pushMessageToHistory({ id, text: msg.text, ts: msg.ts || Date.now(), me: false, status: 'received' });
   } else {
-    // si existe en history, actualizar posibles cambios
     saveHistory(currentPeerId || null);
   }
-
-  // ligera animación de aparición
   try {
     wrap.animate([{ transform: 'translateY(6px)', opacity: 0.92 }, { transform: 'translateY(0)', opacity: 1 }], { duration: 260, easing: 'cubic-bezier(.2,.9,.2,1)' });
-  } catch (e) { /* ignore animation errors */ }
+  } catch (e) { /* ignore */ }
 
   messagesArea.scrollTop = messagesArea.scrollHeight;
 }
 
-/* animar mensaje local (streaming) */
 async function animateLocalMessage(text, id) {
   const { wrap, textSpan, meta } = createBubbleDOM({ me: true });
-  // cambiar color del texto para burbuja clara
-  wrap.style.color = '#02221a';
+  wrap.style.color = '#02221a'; // ensure contrast on outgoing
   await typeText(textSpan, text, 12);
 
-  // asignar id y meta
   const msgId = id || genMessageId();
   wrap.setAttribute('data-msgid', msgId);
   meta.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-  // añadir al historial si no existe
   if (!messageHistory.some(m => m.id === msgId)) {
     pushMessageToHistory({ id: msgId, text, ts: Date.now(), me: true, status: 'sending' });
   } else {
     saveHistory(currentPeerId || null);
   }
 
-  // pop animation
   try {
     wrap.animate([{ transform: 'scale(.98)', opacity: 0.96 }, { transform: 'scale(1)', opacity: 1 }], { duration: 200, easing: 'cubic-bezier(.2,.9,.2,1)' });
   } catch (e) { /* ignore */ }
@@ -381,9 +369,9 @@ async function animateLocalMessage(text, id) {
   return msgId;
 }
 
-/* ---------------------------- Message send / receive flows ---------------------------- */
+/* ---------------------------- Send / Receive flows ---------------------------- */
 function sendMessage() {
-  const text = messageInput.value.trim();
+  const text = (messageInput && messageInput.value) ? messageInput.value.trim() : '';
   if (!text) return;
   const id = genMessageId();
 
@@ -393,43 +381,81 @@ function sendMessage() {
   const msg = { id, type: 'message', text, ts: Date.now() };
   const ok = safeSend(msg);
   if (ok) {
-    // marcar status en history (si fue añadida por animation)
     const existing = messageHistory.find(m => m.id === id);
     if (existing) existing.status = 'sent';
     saveHistory(currentPeerId || null);
   } else {
-    // marcar fallo (opcional)
     const existing = messageHistory.find(m => m.id === id);
     if (existing) existing.status = 'failed';
     saveHistory(currentPeerId || null);
   }
 
-  messageInput.value = '';
+  if (messageInput) {
+    messageInput.value = '';
+    autosizeTextarea(messageInput);
+  }
   sendTypingState('stop');
 }
 
 function addRemoteMessage(msg) {
-  // evitar duplicados
   if (messageHistory.some(m => m.id === msg.id && !m.me)) {
-    // si ya está en history, quizás renderizarlo si no visible
     renderMessages();
     return;
   }
-  // animar llegada y persistir (animateIncomingMessage hace pushHistory)
   animateIncomingMessage(msg).catch(e => {
-    // fallback: persistir sin animación
     pushMessageToHistory({ id: msg.id || genMessageId(), text: msg.text, ts: msg.ts || Date.now(), me: false, status: 'received' });
     renderMessages();
   });
 }
 
-/* ---------------------------- File handling ---------------------------- */
-/* Reemplaza la función addFileMessage en chat.js por esta */
-function addFileMessage(obj, me) {
-  // obj: {type:'file', id, name, mime, size, dataUrl}
-  const id = obj.id || genMessageId();
+/* ---------------------------- File handling (file-card) ---------------------------- */
+function renderFileCardFromEntry(entry) {
+  const obj = entry.meta && entry.meta.file ? entry.meta.file : null;
+  if (!obj) return;
+  const id = entry.id || genMessageId();
+  const card = document.createElement('div');
+  card.className = 'file-card ' + (entry.me ? 'out' : 'in');
+  card.setAttribute('data-msgid', id);
+  card.setAttribute('role', 'group');
+  card.setAttribute('aria-label', `Archivo: ${obj.name || 'archivo'} (${formatSize(obj.size||0)})`);
 
-  // evitar duplicados en history
+  // if image -> thumb first
+  if (obj.mime && obj.mime.startsWith('image/') && obj.dataUrl) {
+    const thumb = document.createElement('img');
+    thumb.className = 'file-thumb';
+    thumb.src = obj.dataUrl;
+    thumb.alt = obj.name || 'Imagen';
+    thumb.style.cursor = 'pointer';
+    thumb.addEventListener('click', () => {
+      const w = window.open('');
+      w.document.write(`<body style="background:#001224;margin:0;display:flex;align-items:center;justify-content:center;height:100vh;"><img src="${obj.dataUrl}" style="max-width:100%;height:auto;box-shadow:0 12px 40px rgba(0,0,0,0.6)"/></body>`);
+    });
+    card.appendChild(thumb);
+  } else {
+    const icon = document.createElement('div');
+    icon.className = 'file-icon';
+    icon.textContent = obj.name ? obj.name.slice(0, 2).toUpperCase() : 'F';
+    card.appendChild(icon);
+  }
+
+  const metaCol = document.createElement('div');
+  metaCol.className = 'file-meta';
+  const nameEl = document.createElement('div');
+  nameEl.className = 'file-name';
+  nameEl.textContent = obj.name || 'Archivo';
+  const sizeEl = document.createElement('div');
+  sizeEl.className = 'file-size';
+  sizeEl.textContent = formatSize(obj.size || 0);
+  metaCol.appendChild(nameEl);
+  metaCol.appendChild(sizeEl);
+  card.appendChild(metaCol);
+
+  messagesEl.appendChild(card);
+  messagesArea.scrollTop = messagesArea.scrollHeight;
+}
+
+function addFileMessage(obj, me) {
+  const id = obj.id || genMessageId();
   if (messageHistory.some(m => m.id === id && m.meta && m.meta.file)) return;
 
   const entry = {
@@ -442,56 +468,22 @@ function addFileMessage(obj, me) {
   };
   pushMessageToHistory(entry);
 
-  // crear file-card
-  const card = document.createElement('div');
-  card.className = 'file-card ' + (me ? 'out' : 'in');
-  card.setAttribute('data-msgid', id);
-
-  // icon / thumb container
-  const icon = document.createElement('div');
-  icon.className = 'file-icon';
-  // si es imagen, mostraremos thumb en vez de icon
-  if (obj.mime && obj.mime.startsWith('image/') && obj.dataUrl) {
-    const thumb = document.createElement('img');
-    thumb.className = 'file-thumb';
-    thumb.src = obj.dataUrl;
-    thumb.alt = obj.name || 'Imagen';
-    card.appendChild(thumb);
-  } else {
-    icon.textContent = obj.name ? obj.name.slice(0,2).toUpperCase() : 'F';
-    card.appendChild(icon);
-  }
-
-  // metadata
-  const metaCol = document.createElement('div');
-  metaCol.className = 'file-meta';
-  const nameEl = document.createElement('div');
-  nameEl.className = 'file-name';
-  nameEl.textContent = obj.name || 'Archivo';
-  const sizeEl = document.createElement('div');
-  sizeEl.className = 'file-size';
-  // convertir bytes a legible
-  function hsize(n){
-    if(!n && n !== 0) return '';
-    const units = ['B','KB','MB','GB'];
-    let i=0; let val = n;
-    while(val >= 1024 && i < units.length-1){ val/=1024; i++; }
-    return val.toFixed(val<10 && i>0 ? 1 : 0) + ' ' + units[i];
-  }
-  sizeEl.textContent = hsize(obj.size || 0);
-
-  metaCol.appendChild(nameEl);
-  metaCol.appendChild(sizeEl);
-
-  card.appendChild(metaCol);
-  messagesEl.appendChild(card);
-  messagesArea.scrollTop = messagesArea.scrollHeight;
+  // render the card immediately
+  renderFileCardFromEntry(entry);
 }
 
-/* ---------------------------- Chunked transfer (receptor) ---------------------------- */
+/* helper: human readable size */
+function formatSize(n) {
+  if (!n && n !== 0) return '';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let i = 0; let val = n;
+  while (val >= 1024 && i < units.length - 1) { val /= 1024; i++; }
+  return (val < 10 && i > 0 ? val.toFixed(1) : Math.round(val)) + ' ' + units[i];
+}
+
+/* ---------------------------- Chunked transfer (receiver) ---------------------------- */
 const incomingChunks = {}; // fileId -> {meta, parts: []}
 function handleIncomingChunk(msg) {
-  // msg: {type:'file-chunk', fileId, index, total, name, mime, size, data}
   const fileId = msg.fileId;
   if (!incomingChunks[fileId]) incomingChunks[fileId] = { meta: { name: msg.name, mime: msg.mime, size: msg.size }, parts: [] };
   incomingChunks[fileId].parts[msg.index] = msg.data;
@@ -512,7 +504,7 @@ function requestReadReceipt(messageId) {
   safeSend({ type: 'read', id: messageId });
 }
 
-/* ---------------------------- typing state ---------------------------- */
+/* ---------------------------- Typing indicator ---------------------------- */
 function showTyping(show) {
   if (!typingIndicator) return;
   typingIndicator.hidden = !show;
@@ -522,38 +514,42 @@ function sendTypingState(state) {
   safeSend({ type: 'typing', state });
 }
 
-/* ---------------------------- UI events ---------------------------- */
-connectBtn.addEventListener('click', () => {
-  const id = peerIdInput.value.trim();
-  if (!id) return;
-  connectToPeer(id);
-});
+/* ---------------------------- Autosize textarea & input handling ---------------------------- */
+function autosizeTextarea(el) {
+  if (!el) return;
+  el.style.height = 'auto';
+  const max = Math.round(window.innerHeight * 0.4);
+  el.style.height = Math.min(el.scrollHeight, max) + 'px';
+}
+if (messageInput) autosizeTextarea(messageInput);
 
-/* Desconectar: envía comando reload al par (si hay) y recarga local */
-disconnectBtn.addEventListener('click', () => {
-  if (conn && conn.open) {
-    try { conn.send({ type: 'system', cmd: 'reload' }); } catch (e) { console.warn('no se pudo enviar reload', e); }
-  }
-  // esperar un pelín para que el mensaje salga
-  setTimeout(() => {
-    try { if (peer) peer.destroy(); } catch (e) { /* ignore */ }
-    location.reload();
-  }, 150);
-});
+/* Input events:
+   - input -> autosize + typing start + debounced stop
+   - keydown -> Ctrl/Cmd+Enter => send
+*/
+if (messageInput) {
+  messageInput.addEventListener('input', (e) => {
+    autosizeTextarea(e.target);
+    if (conn && conn.open) safeSend({ type: 'typing', state: 'start' });
+    if (messageInput._typingTimeout) clearTimeout(messageInput._typingTimeout);
+    messageInput._typingTimeout = setTimeout(() => {
+      if (conn && conn.open) safeSend({ type: 'typing', state: 'stop' });
+    }, 900);
+  });
 
-sendBtn.addEventListener('click', sendMessage);
-messageInput.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
-  // typing debounced
-  if (typingSendDebounce) clearTimeout(typingSendDebounce);
-  if (conn && conn.open) safeSend({ type: 'typing', state: 'start' });
-  typingSendDebounce = setTimeout(() => {
-    if (conn && conn.open) safeSend({ type: 'typing', state: 'stop' });
-  }, 900);
-});
+  messageInput.addEventListener('keydown', (e) => {
+    // Ctrl+Enter OR Meta(⌘)+Enter => send
+    if ((e.key === 'Enter') && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      sendMessage();
+      setTimeout(() => { messageInput.focus(); autosizeTextarea(messageInput); }, 20);
+    }
+  });
+}
 
-attachBtn.addEventListener('click', () => fileInput.click());
-fileInput.addEventListener('change', () => {
+/* ---------------------------- File attach handling (sender) ---------------------------- */
+if (attachBtn) attachBtn.addEventListener('click', () => fileInput.click());
+if (fileInput) fileInput.addEventListener('change', () => {
   const f = fileInput.files[0];
   if (!f) return;
   const reader = new FileReader();
@@ -564,7 +560,6 @@ fileInput.addEventListener('change', () => {
       addFileMessage(obj, true);
       safeSend(obj);
     } else {
-      // enviar por chunks (base64)
       const b64 = dataUrl.split(',')[1];
       const approxChunkSize = Math.floor(CHUNK_SIZE * 1.33);
       const total = Math.ceil(b64.length / approxChunkSize);
@@ -574,7 +569,6 @@ fileInput.addEventListener('change', () => {
         const part = b64.slice(start, start + approxChunkSize);
         safeSend({ type: 'file-chunk', fileId, index: i, total, name: f.name, mime: f.type, size: f.size, data: part });
       }
-      // entrada local optimista
       const obj = { id: fileId, text: f.name, ts: Date.now(), me: true, status: 'sending', meta: { file: { name: f.name, size: f.size, mime: f.type } } };
       pushMessageToHistory(obj);
       renderMessages();
@@ -584,11 +578,35 @@ fileInput.addEventListener('change', () => {
   fileInput.value = '';
 });
 
-attachBtn.addEventListener('keydown', e => { if (e.key === 'Enter') fileInput.click(); });
+/* ---------------------------- UI events: connect/disconnect/send ---------------------------- */
+if (connectBtn) connectBtn.addEventListener('click', () => {
+  const id = peerIdInput.value.trim();
+  if (!id) return;
+  connectToPeer(id);
+});
 
-messagesArea.addEventListener('click', () => messageInput.focus());
+if (disconnectBtn) disconnectBtn.addEventListener('click', () => {
+  if (conn && conn.open) {
+    try { conn.send({ type: 'system', cmd: 'reload' }); } catch (e) { console.warn('no se pudo enviar reload', e); }
+  }
+  setTimeout(() => {
+    try { if (peer) peer.destroy(); } catch (e) { /* ignore */ }
+    location.reload();
+  }, 150);
+});
 
+if (sendBtn) sendBtn.addEventListener('click', () => {
+  sendMessage();
+  setTimeout(() => { if (messageInput) { messageInput.focus(); autosizeTextarea(messageInput); } }, 20);
+});
+
+/* make messages area click focus textarea */
+if (messagesArea) messagesArea.addEventListener('click', () => { if (messageInput) messageInput.focus(); });
+
+/* cleanup on unload */
 window.addEventListener('beforeunload', () => { try { if (peer) peer.destroy(); } catch (e) { } });
 
-/* ---------------------------- Init ---------------------------- */
+/* ---------------------------- Initialize ---------------------------- */
 initPeer();
+
+/* ---------------------------- End of file ---------------------------- */
