@@ -47,24 +47,24 @@
       </section>
 
       <section class="composer" role="region" aria-label="Escribir mensaje">
-        <input id="messageInput" class="message-input" placeholder="Escribe un mensaje..." autocomplete="off" aria-label="Escribe un mensaje" />
-        <input id="fileInput" type="file" hidden aria-hidden="true" />
+      <textarea id="messageInput" class="message-input" placeholder="Escribe un mensaje..." autocomplete="off" rows="2" aria-label="Escribe un mensaje"></textarea>
+      <input id="fileInput" type="file" hidden aria-hidden="true" />
 
-        <!-- Clip / Adjuntar (usa currentColor) -->
-        <button id="attachBtn" class="btn-icon" title="Adjuntar archivo" aria-label="Adjuntar archivo">
-          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" aria-hidden="true" focusable="false" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21.44 11.05L12.7 19.79a4.75 4.75 0 0 1-6.72 0 4.75 4.75 0 0 1 0-6.72L12 7.97"></path>
-          </svg>
-        </button>
+   <!-- Clip / Adjuntar (usa currentColor) -->
+  <button id="attachBtn" class="btn-icon" title="Adjuntar archivo" aria-label="Adjuntar archivo">
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" aria-hidden="true" focusable="false" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21.44 11.05L12.7 19.79a4.75 4.75 0 0 1-6.72 0 4.75 4.75 0 0 1 0-6.72L12 7.97"></path>
+    </svg>
+  </button>
 
-        <!-- Enviar (usa currentColor) -->
-        <button id="sendBtn" class="btn-send" title="Enviar mensaje" aria-label="Enviar mensaje">
-          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" aria-hidden="true" focusable="false" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M22 2L11 13"></path>
-            <path d="M22 2l-7 20 0-9-9-1 16-10z"></path>
-          </svg>
-        </button>
-      </section>
+  <!-- Enviar -->
+  <button id="sendBtn" class="btn-send" title="Enviar mensaje" aria-label="Enviar mensaje">
+    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" aria-hidden="true" focusable="false" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M22 2L11 13"></path>
+      <path d="M22 2l-7 20 0-9-9-1 16-10z"></path>
+    </svg>
+  </button>
+</section>
 
       <div id="statusBar" class="status" role="status" aria-live="polite">Estado: <span id="statusText">Desconectado</span></div>
     </section>
@@ -112,3 +112,4 @@
   <script src="chat.js"></script>
 </body>
 </html>
+
