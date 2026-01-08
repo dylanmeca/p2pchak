@@ -3,43 +3,102 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>p2pchak - un chat p2p en línea</title>
+  <title>p2pchak — un chat p2p en línea</title>
   <meta name="description" content="p2pchak es un servicio de comunicación privada que utiliza la tecnología P2P, ofreciendo chats temporales en línea sin necesidad de registro.">
   <meta name="author" content="Dylan Meca">
+  <meta name="theme-color" content="#001224">
+
+  <!-- Open Graph -->
   <meta property="og:type" content="website">
   <meta property="og:locale" content="es_ES">
-  <meta property="og:site_name" content="p2pchak - un chat p2p en línea">
+  <meta property="og:site_name" content="p2pchak — un chat p2p en línea">
   <meta property="og:title" content="p2pchak">
   <meta property="og:url" content="https://p2pchak.vercel.app/">
-  <meta property="og:description" content="p2pchak es un servicio de comunicación privada que utiliza la tecnología P2P, ofreciendo chats temporales en línea sin necesidad de registro.">
+  <meta property="og:description" content="p2pchak es un servicio de comunicación privada y descentralizada; comparte tu ID y conecta.">
+
+  <!-- Twitter -->
   <meta name="twitter:site" content="@meca_dylan">
-  <meta name="twitter:title" content="p2pchak - un chat p2p en línea">
-  <meta name="twitter:description" content="Soy Dylan Meca, estudiante de ciencias de la computación, apasionado por los libros y la filosofía enfocada al crecimiento personal, y comparto en mi blog contenido educativo sobre tecnología y otras de mis pasiones.">
+  <meta name="twitter:title" content="p2pchak — un chat p2p en línea">
+  <meta name="twitter:description" content="Comunicación privada P2P: chats temporales sin registro.">
   <meta name="twitter:url" content="https://p2pchak.vercel.app/">
   <meta name="twitter:card" content="summary">
+
   <link rel="canonical" href="https://p2pchak.vercel.app/">
+
+  <!-- Structured data -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
-    
-      "@type": "Person",
-      "name": "p2pchak - un chat p2p en línea",
-      "url": "https://p2pchak.vercel.app/"
-    
+    "@type": "WebSite",
+    "name": "p2pchak",
+    "url": "https://p2pchak.vercel.app/",
+    "description": "Chat peer-to-peer temporal y sin registro."
   }
   </script>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Favicons (ico + png) -->
   <link rel="icon" href="/favicon.ico" type="image/x-icon">
+  <link rel="icon" href="/favicon.png" type="image/png">
+
+  <!-- Minimal inline CSS para el encabezado (título + favicon visible y del mismo tamaño) -->
+  <style>
+    /* Title row: centra título + favicon y los alinea */
+    .title-row{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+    .site-title{
+      margin:0;
+      font-size:28px; /* si cambias el tamaño en estilos.css, el favicon también crecerá por usar 1em */
+      font-weight:700;
+      line-height:1;
+      /* si usas background-clip text en estilos.css, mantenlo */
+    }
+    /* La imagen al lado del título — altura igual al tamaño de fuente del título */
+    .site-favicon{
+      height:1em;            /* iguala la altura a la del título (1em = font-size de .site-title) */
+      width:auto;
+      display:inline-block;
+      object-fit:contain;
+      vertical-align:middle;
+      border-radius:6px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.45);
+    }
+    /* Ajuste responsivo: en pantallas pequeñas bajamos tamaño del título y del favicon */
+    @media (max-width:520px){
+      .site-title{ font-size:20px; }
+      .site-favicon{ height:1em; } /* 1em = 20px ahora */
+    }
+    /* Asegurar que el header interior tenga un poco de separación */
+    .top .meta-row{ margin-top:8px; display:flex; gap:8px; align-items:center; justify-content:center; flex-wrap:wrap; }
+  </style>
+
   <link rel="stylesheet" href="estilos.css">
   <!-- PeerJS CDN -->
-  <script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js"></script>
+  <script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js" defer></script>
 </head>
 <body>
   <main class="page" role="main">
     <header class="top" role="banner">
-      <h1 class="site-title">p2pchak</h1>
-        <p class="site-desc">Es un servicio de comunicación privada y descentralizada, donde las conversaciones no se registran. <br \> Comparte tu ID y conecta.</p>
-        <a href="https://github.com/dylanmeca/p2pchak" target="_blank" rel="noopener noreferrer"><img src="https://img.shields.io/github/stars/dylanmeca/p2pchak?style=for-the-badge&labelColor=000000&color=555555&logoColor=white" alt="GitHub stars" style="margin-top:8px;cursor:pointer;"></a>
+      <div class="title-row" aria-hidden="false">
+        <!-- Título -->
+        <h1 class="site-title">p2pchak</h1>
+
+        <!-- favicon.png mostrado a la derecha del título y escalado al mismo tamaño -->
+        <img src="/favicon.png" alt="p2pchak logo" class="site-favicon" aria-hidden="false" />
+      </div>
+
+      <p class="site-desc">Es un servicio de comunicación privada y descentralizada, donde las conversaciones no se registran.<br />Comparte tu ID y conecta.</p>
+
+      <div class="meta-row" aria-hidden="false">
+        <a href="https://github.com/dylanmeca/p2pchak" target="_blank" rel="noopener noreferrer" aria-label="Repositorio en GitHub">
+          <img src="https://img.shields.io/github/stars/dylanmeca/p2pchak?style=for-the-badge&labelColor=000000&color=555555&logoColor=white" alt="GitHub stars" style="cursor:pointer;">
+        </a>
+      </div>
+
       <hr class="divider" />
     </header>
 
@@ -73,24 +132,24 @@
       </section>
 
       <section class="composer" role="region" aria-label="Escribir mensaje">
-      <textarea id="messageInput" class="message-input" placeholder="Escribe un mensaje..." autocomplete="off" rows="2" aria-label="Escribe un mensaje"></textarea>
-      <input id="fileInput" type="file" hidden aria-hidden="true" />
+        <textarea id="messageInput" class="message-input" placeholder="Escribe un mensaje..." autocomplete="off" rows="2" aria-label="Escribe un mensaje"></textarea>
+        <input id="fileInput" type="file" hidden aria-hidden="true" />
 
-   <!-- Clip / Adjuntar (usa currentColor) -->
-  <button id="attachBtn" class="btn-icon" title="Adjuntar archivo" aria-label="Adjuntar archivo">
-    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" aria-hidden="true" focusable="false" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M21.44 11.05L12.7 19.79a4.75 4.75 0 0 1-6.72 0 4.75 4.75 0 0 1 0-6.72L12 7.97"></path>
-    </svg>
-  </button>
+        <!-- Clip / Adjuntar (usa currentColor) -->
+        <button id="attachBtn" class="btn-icon" title="Adjuntar archivo" aria-label="Adjuntar archivo">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" aria-hidden="true" focusable="false" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21.44 11.05L12.7 19.79a4.75 4.75 0 0 1-6.72 0 4.75 4.75 0 0 1 0-6.72L12 7.97"></path>
+          </svg>
+        </button>
 
-  <!-- Enviar -->
-  <button id="sendBtn" class="btn-send" title="Enviar mensaje" aria-label="Enviar mensaje">
-    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" aria-hidden="true" focusable="false" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M22 2L11 13"></path>
-      <path d="M22 2l-7 20 0-9-9-1 16-10z"></path>
-    </svg>
-  </button>
-</section>
+        <!-- Enviar -->
+        <button id="sendBtn" class="btn-send" title="Enviar mensaje" aria-label="Enviar mensaje">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" aria-hidden="true" focusable="false" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 2L11 13"></path>
+            <path d="M22 2l-7 20 0-9-9-1 16-10z"></path>
+          </svg>
+        </button>
+      </section>
 
       <div id="statusBar" class="status" role="status" aria-live="polite">Estado: <span id="statusText">Desconectado</span></div>
     </section>
@@ -118,7 +177,6 @@
           await navigator.clipboard.writeText(id);
           flashText(copyBtn, 'Copiado');
         } catch (e) {
-          // Fallback: seleccionar y pedir copia por prompt
           try {
             const ta = document.createElement('textarea');
             ta.value = id; document.body.appendChild(ta);
@@ -134,11 +192,7 @@
     })();
   </script>
 
-  <!-- tu lógica del chat -->
-  <script src="chat.js"></script>
+  <!-- lógica del chat -->
+  <script src="chat.js" defer></script>
 </body>
 </html>
-
-
-
-
