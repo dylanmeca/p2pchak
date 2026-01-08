@@ -5,24 +5,28 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>p2pchak - Página no encontrada</title>
   <link rel="stylesheet" href="estilos.css">
+  <style>
+    body, html {
+      height: 100%;
+      margin: 0;
+    }
+    .center-404 {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100%;
+      text-align: center;
+      gap: 1rem; 
+    }
+  </style>
 </head>
 <body>
-  <main class="page" role="main">
-    <header class="top" role="banner">
-      <h1 class="site-title">404 - Página no encontrada</h1>
-      <p class="site-desc">
-        La dirección que ha solicitado no se encuentra disponible o ha sido eliminada. 
-        Por favor, verifique la URL o regrese a la página principal para continuar utilizando el servicio.
-      </p>
+  <main class="page">
+    <section class="center-404">
+      <h1 class="site-title">404</h1>
+      <p class="site-desc">Página no encontrada</p>
       <a href="/" class="btn primary">Ir a la página principal</a>
-      <hr class="divider" />
-    </header>
-
-    <section class="chat-wrapper">
-      <section class="messages-area">
-        <div class="messages">
-        </div>
-      </section>
     </section>
   </main>
 </body>
