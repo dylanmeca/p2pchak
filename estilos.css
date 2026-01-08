@@ -60,15 +60,7 @@ body{
 
 /* header */
 .top{ text-align:center; margin-bottom:12px; }
-.site-title{
-  margin:0;
-  font-size:28px;
-  font-weight:700;
-  background: linear-gradient(90deg, var(--accent-2) 0%, #9ad8ff 40%, rgba(255,255,255,0.9) 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
+.site-title{margin:0;font-size:28px;font-weight:700;color:#39ff14;text-shadow:0 0 6px rgba(57,255,20,.6),0 0 14px rgba(57,255,20,.45),0 0 28px rgba(42,255,0,.35);}
 .site-desc{ margin:8px 0 0; color:var(--text-muted); font-size:14px; }
 
 /* divider */
@@ -298,3 +290,4 @@ button:focus, input:focus, .message-input:focus, .btn-icon:focus { outline:none;
 /* utilities */
 .hidden{ display:none !important; }
 .center{ display:flex; align-items:center; justify-content:center; }
+
