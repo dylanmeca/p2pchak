@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>p2pchat — Chat P2P</title>
+  <link rel="stylesheet" href="estilos.css">
+  <!-- PeerJS CDN -->
+  <script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js"></script>
+</head>
+<body>
+  <main class="page" role="main">
+    <header class="top" role="banner">
+      <h1 class="site-title">p2pchat</h1>
+      <p class="site-desc">Chat peer-to-peer en tiempo real. Sin servidor central de mensajes; comparte tu ID y conecta.</p>
+      <hr class="divider" />
+    </header>
+
+    <section class="chat-wrapper" aria-live="polite">
+      <section class="controls" role="region" aria-label="Controles de conexión">
+        <div class="left" aria-hidden="false">
+          Tu ID:
+          <span id="myId" aria-label="Tu ID">— — — —</span>
+
+          <!-- Botón para copiar ID -->
+          <button id="copyIdBtn" class="btn ghost" title="Copiar ID" aria-label="Copiar mi ID">Copiar</button>
+        </div>
+
+        <div class="right" role="form" aria-label="Conectar a par">
+          <label for="peerIdInput">ID del par:</label>
+          <input id="peerIdInput" placeholder="ej. A1B2C" inputmode="text" aria-label="ID del par" />
+          <button id="connectBtn" class="btn primary" aria-label="Conectar">Conectar</button>
+          <button id="disconnectBtn" class="btn ghost" hidden aria-label="Desconectar">Desconectar</button>
+        </div>
+      </section>
+
+      <section id="messagesArea" class="messages-area" role="log" aria-live="polite" aria-relevant="additions">
+        <div id="messages" class="messages"></div>
+
+        <!-- typing indicator (hidden por defecto) -->
+        <div id="typingIndicator" class="typing" hidden aria-hidden="true" aria-live="off">
+          <div class="dots" aria-hidden="true">
+            <span></span><span></span><span></span>
+          </div>
+        </div>
+      </section>
+
+      <section class="composer" role="region" aria-label="Escribir mensaje">
+        <input id="messageInput" class="message-input" placeholder="Escribe un mensaje..." autocomplete="off" aria-label="Escribe un mensaje" />
+        <input id="fileInput" type="file" hidden aria-hidden="true" />
+
+        <!-- Clip / Adjuntar (usa currentColor) -->
+        <button id="attachBtn" class="btn-icon" title="Adjuntar archivo" aria-label="Adjuntar archivo">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" aria-hidden="true" focusable="false" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21.44 11.05L12.7 19.79a4.75 4.75 0 0 1-6.72 0 4.75 4.75 0 0 1 0-6.72L12 7.97"></path>
+          </svg>
+        </button>
+
+        <!-- Enviar (usa currentColor) -->
+        <button id="sendBtn" class="btn-send" title="Enviar mensaje" aria-label="Enviar mensaje">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" aria-hidden="true" focusable="false" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 2L11 13"></path>
+            <path d="M22 2l-7 20 0-9-9-1 16-10z"></path>
+          </svg>
+        </button>
+      </section>
+
+      <div id="statusBar" class="status" role="status" aria-live="polite">Estado: <span id="statusText">Desconectado</span></div>
+    </section>
+  </main>
+
+  <!-- Pequeño script para copiar el ID (feedback) -->
+  <script>
+    (function(){
+      const copyBtn = document.getElementById('copyIdBtn');
+      const myIdEl = document.getElementById('myId');
+
+      function flashText(el, text, ms = 1200){
+        const prev = el.textContent;
+        el.textContent = text;
+        setTimeout(()=> { el.textContent = prev; }, ms);
+      }
+
+      copyBtn.addEventListener('click', async () => {
+        const id = myIdEl.textContent.trim();
+        if(!id || id === '— — — —') {
+          flashText(copyBtn, 'Sin ID');
+          return;
+        }
+        try {
+          await navigator.clipboard.writeText(id);
+          flashText(copyBtn, 'Copiado');
+        } catch (e) {
+          // Fallback: seleccionar y pedir copia por prompt
+          try {
+            const ta = document.createElement('textarea');
+            ta.value = id; document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            flashText(copyBtn, 'Copiado');
+          } catch (err) {
+            flashText(copyBtn, 'Error');
+          }
+        }
+      });
+    })();
+  </script>
+
+  <!-- tu lógica del chat -->
+  <script src="chat.js"></script>
+</body>
+</html>
