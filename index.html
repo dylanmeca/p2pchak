@@ -6,7 +6,12 @@
   <title>p2pchak — un chat p2p en línea</title>
   <meta name="description" content="p2pchak es un servicio de comunicación privada que utiliza la tecnología P2P, ofreciendo chats temporales en línea sin necesidad de registro.">
   <meta name="author" content="Dylan Meca">
+  <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#001224">
+  <!-- Apple -->
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
   <!-- Open Graph -->
   <meta property="og:type" content="website">
@@ -194,5 +199,20 @@
 
   <!-- lógica del chat -->
   <script src="chat.js" defer></script>
+
+  <script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js')
+        .then(reg => {
+          console.log('Service Worker registrado:', reg);
+        }).catch(err => {
+          console.warn('Service Worker fallo:', err);
+        });
+    });
+  }
+  </script>
+
 </body>
 </html>
+
