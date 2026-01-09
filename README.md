@@ -1,6 +1,6 @@
 # p2pchak
-[![Starts](https://img.shields.io/github/stars/dylanmeca/ChatGPT-Python.svg)](https://github.com/dylanmeca/p2pchak)
-[![License](https://img.shields.io/github/license/dylanmeca/ChatGPT-Python.svg)](https://github.com/dylanmeca/p2pchak/blob/main/LICENSE)
+[![Starts](https://img.shields.io/github/stars/dylanmeca/p2pchak.svg)](https://github.com/dylanmeca/p2pchak)
+[![License](https://img.shields.io/github/license/dylanmeca/p2pchak.svg)](https://github.com/dylanmeca/p2pchak/blob/main/LICENSE)
 [![dylanmeca](https://img.shields.io/badge/author-dylanmeca-green.svg)](https://github.com/dylanmeca)
 
 ## 👷 Contribuciones
