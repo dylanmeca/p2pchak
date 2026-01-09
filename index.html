@@ -98,48 +98,58 @@
         <img src="/favicon.png" alt="p2pchak logo" class="site-favicon" aria-hidden="false" />
       </div>
 
-      <div class="site-desc">
-        <p>
+      <div class="site-desc-wrapper">
+      <p class="site-desc">
           Es un servicio de chat P2P privado y temporal, donde las conversaciones no se registran en ningún servidor.
-        </p>
+      </p>
       
-        <strong>Cómo conectarte:</strong>
-        <ol>
+      <strong>Cómo conectarte:</strong>
+        <ol class="site-desc">
           <li>Copia y comparte tu ID con la persona con la que deseas chatear.</li>
           <li>La otra persona introduce tu ID y ¡conecta!</li>
-        </ol>
+       </ol>
       
-        <strong>Por qué elegir p2pchak:</strong>
-        <ul>
+       <strong>Por qué elegir p2pchak:</strong>
+        <ul class="site-desc">
           <li>Chats sin historial y temporales que se eliminan automáticamente al cerrar la pestaña.</li>
           <li>Privacidad gracias a la tecnología P2P, permitiendo chats sin servidores.</li>
           <li>No requiere registro ni pasos adicionales.</li>
         </ul>
-      
-        <!-- CSS interno solo para este bloque -->
-        <style>
-          .site-desc {
-            text-align: left;        /* todo el texto alineado a la izquierda */
-          }
-      
-          .site-desc ol,
-          .site-desc ul {
-            margin-left: 1.2em;      /* sangría para listas */
-            padding-left: 0;         /* quitar padding por defecto */
-            list-style-position: outside; /* números/viñetas en margen izquierdo */
-          }
-      
-          .site-desc li {
-            margin: 0.25em 0;        /* espacio entre items */
-          }
-      
-          .site-desc strong {
-            display: block;           /* subtítulos en bloque */
-            margin-top: 0.6em;
-            margin-bottom: 0.35em;
-          }
-        </style>
       </div>
+      
+      <!-- CSS inline dentro del HTML -->
+      <style>
+        /* Contenedor que centra el bloque */
+        .site-desc-wrapper {
+          display: inline-block;      /* tamaño del bloque se ajusta al contenido */
+          text-align: left;           /* texto dentro alineado a la izquierda */
+          margin: 0 auto;             /* centra el bloque en la página */
+        }
+      
+        /* Opcional: ancho máximo para no ocupar todo el ancho */
+        .site-desc-wrapper {
+          max-width: 720px;
+        }
+      
+        /* Sangría y espaciado para listas dentro del bloque */
+        .site-desc-wrapper ol,
+        .site-desc-wrapper ul {
+          margin-left: 1.2em;         /* sangría de listas */
+          padding-left: 0;
+        }
+      
+        /* Espacio entre items de la lista */
+        .site-desc-wrapper li {
+          margin: 0.25em 0;
+        }
+      
+        /* Encabezados strong dentro del bloque */
+        .site-desc-wrapper strong {
+          display: block;
+          margin-top: 0.6em;
+          margin-bottom: 0.35em;
+        }
+      </style>
     
       <div class="meta-row" aria-hidden="false">
         <a href="https://github.com/dylanmeca/p2pchak" target="_blank" rel="noopener noreferrer" aria-label="Repositorio en GitHub">
@@ -258,6 +268,7 @@
 
 </body>
 </html>
+
 
 
 
