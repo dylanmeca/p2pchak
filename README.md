@@ -1,4 +1,4 @@
-# p2pchak
+# p2pchak - Chat P2P en línea sin registro
 [![Starts](https://img.shields.io/github/stars/dylanmeca/p2pchak.svg)](https://github.com/dylanmeca/p2pchak)
 [![License](https://img.shields.io/github/license/dylanmeca/p2pchak.svg)](https://github.com/dylanmeca/p2pchak/blob/main/LICENSE)
 [![dylanmeca](https://img.shields.io/badge/author-dylanmeca-green.svg)](https://github.com/dylanmeca)
