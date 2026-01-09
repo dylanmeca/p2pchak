@@ -3,6 +3,8 @@
 [![License](https://img.shields.io/github/license/dylanmeca/p2pchak.svg)](https://github.com/dylanmeca/p2pchak/blob/main/LICENSE)
 [![dylanmeca](https://img.shields.io/badge/author-dylanmeca-green.svg)](https://github.com/dylanmeca)
 
+p2pchak es un servicio de comunicación privada que utiliza la tecnología P2P, ofreciendo chats temporales en línea sin necesidad de registro.
+
 ## 👷 Contribuciones
 
 Este proyecto es de código abierto y estamos abiertos a cualquier tipo de contribución. Si quieres colaborar con el proyecto, sigue estos pasos:
