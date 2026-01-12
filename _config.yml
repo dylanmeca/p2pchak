@@ -2,6 +2,7 @@ title: "p2pchak - Chat P2P en línea sin registro"
 description: "p2pchak es un servicio de comunicación privada que utiliza la tecnología P2P, ofreciendo chats temporales en línea sin necesidad de registro."
 sub_description: "🟢 Conéctate directamente con tus conocidos, comparte archivos o chatea, sin historial ni registros en servidores."
 lang: "es"
+repository: dylanmeca/p2pchak
 show_downloads: false
 google_analytics:
 google_site_verification : "lBg4RSX2hnEcxA7fWW46cux1hJYk1zvuvF55FjpzZYk"
