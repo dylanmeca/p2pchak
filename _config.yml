@@ -1,0 +1,30 @@
+title: "p2pchak - Chat P2P en línea sin registro"
+description: "p2pchak es un servicio de comunicación privada que utiliza la tecnología P2P, ofreciendo chats temporales en línea sin necesidad de registro."
+sub_description: "🟢 Conéctate directamente con tus conocidos, comparte archivos o chatea, sin historial ni registros en servidores."
+lang: "es"
+show_downloads: false
+google_analytics:
+google_site_verification : "lBg4RSX2hnEcxA7fWW46cux1hJYk1zvuvF55FjpzZYk"
+bing_site_verification : "4934D978F9E22D0A0239EA507C20F2CF"
+url: "https://p2pchak.vercel.app"
+
+theme: jekyll-theme-hacker
+
+
+# Site Author
+author:
+  name             : "Dylan Meca"
+
+# Social Sharing
+twitter:
+  username               : "meca_dylan"
+
+plugins:
+  - jekyll-sitemap
+  - jekyll-gist
+  - jekyll-include-cache
+
+whitelist:
+  - jekyll-sitemap
+  - jekyll-gist
+  - jekyll-include-cache

@@ -8,7 +8,7 @@
   <meta name="author" content="Dylan Meca">
   <meta name="google-site-verification" content="lBg4RSX2hnEcxA7fWW46cux1hJYk1zvuvF55FjpzZYk" />
   <meta name="msvalidate.01" content="4934D978F9E22D0A0239EA507C20F2CF" />
-  <link rel="manifest" href="/manifest.json">
+  <link rel="manifest" href="/app/manifest.json">
   <meta name="theme-color" content="#001224">
   <!-- Apple -->
   <link rel="apple-touch-icon" href="/icons/icon-192.png">
@@ -45,7 +45,7 @@
 
   <!-- Favicons (ico + png) -->
   <link rel="icon" href="/favicon.ico" type="image/x-icon">
-  <link rel="icon" href="/favicon.png" type="image/png">
+  <link rel="icon" href="/icons/favicon.png" type="image/png">
 
   <!-- Minimal inline CSS para el encabezado (título + favicon visible y del mismo tamaño) -->
   <style>
@@ -83,7 +83,7 @@
     .top .meta-row{ margin-top:8px; display:flex; gap:8px; align-items:center; justify-content:center; flex-wrap:wrap; }
   </style>
 
-  <link rel="stylesheet" href="estilos.css">
+  <link rel="stylesheet" href="/app/estilos.css">
   <!-- PeerJS CDN -->
   <script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js" defer></script>
 </head>
@@ -95,68 +95,8 @@
         <h1 class="site-title">p2pchak</h1>
 
         <!-- favicon.png mostrado a la derecha del título y escalado al mismo tamaño -->
-        <img src="/favicon.png" alt="p2pchak logo" class="site-favicon" aria-hidden="false" />
+        <img src="/icons/favicon.png" alt="p2pchak logo" class="site-favicon" aria-hidden="false" />
       </div><br />
-
-      <div style="max-width: 720px; margin: 0 auto; padding: 20px; border: 1px solid rgba(255,255,255,0.15); border-radius: 12px;" class="site-desc-wrapper">
-      <p class="site-desc">
-         🟢 Conéctate directamente con tus conocidos, comparte archivos o chatea, sin historial ni registros en servidores.
-      </p>
-      
-      <strong class="site-desc">🔑 Cómo conectarte:</strong>
-        <ol class="site-desc">
-          <li>Copia y comparte tu ID con la persona con la que deseas chatear.</li>
-          <li>La otra persona introduce tu ID y ¡conecta!</li>
-       </ol>
-      
-       <strong class="site-desc">🔒 Por qué elegir p2pchak:</strong>
-        <ul class="site-desc">
-          <li>Chats sin historial y temporales que se eliminan automáticamente al cerrar la pestaña.</li>
-          <li>Compartir archivos entre usuarios, gratis.</li>
-          <li>Privacidad gracias a la tecnología P2P.</li>
-          <li>No requiere registro ni pasos adicionales.</li>
-        </ul>
-      </div>
-      
-      <!-- CSS inline dentro del HTML -->
-      <style>
-        /* Contenedor que centra el bloque */
-        .site-desc-wrapper {
-          display: inline-block;      /* tamaño del bloque se ajusta al contenido */
-          text-align: left;           /* texto dentro alineado a la izquierda */
-          margin: 0 auto;             /* centra el bloque en la página */
-        }
-      
-        /* Opcional: ancho máximo para no ocupar todo el ancho */
-        .site-desc-wrapper {
-          max-width: 720px;
-        }
-      
-        /* Sangría y espaciado para listas dentro del bloque */
-        .site-desc-wrapper ol,
-        .site-desc-wrapper ul {
-          margin-left: 1.2em;         /* sangría de listas */
-          padding-left: 0;
-        }
-      
-        /* Espacio entre items de la lista */
-        .site-desc-wrapper li {
-          margin: 0.25em 0;
-        }
-      
-        /* Encabezados strong dentro del bloque */
-        .site-desc-wrapper strong {
-          display: block;
-          margin-top: 0.6em;
-          margin-bottom: 0.35em;
-        }
-      </style>
-    
-      <div class="meta-row" aria-hidden="false">
-        <a href="https://github.com/dylanmeca/p2pchak" target="_blank" rel="noopener noreferrer" aria-label="Repositorio en GitHub">
-          <img src="https://img.shields.io/github/stars/dylanmeca/p2pchak?style=for-the-badge&labelColor=000000&color=555555&logoColor=white" alt="GitHub stars" style="cursor:pointer;">
-        </a>
-      </div>
 
       <hr class="divider" />
     </header>
@@ -252,12 +192,12 @@
   </script>
 
   <!-- lógica del chat -->
-  <script src="chat.js" defer></script>
+  <script src="/app/chat.js" defer></script>
 
   <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js')
+      navigator.serviceWorker.register('/app/sw.js')
         .then(reg => {
           console.log('Service Worker registrado:', reg);
         }).catch(err => {

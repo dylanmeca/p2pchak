@@ -1,0 +1,65 @@
+<!-- begin _includes/seo.html -->
+{%- assign default_description = "p2pchak es un servicio de comunicación privada que utiliza la tecnología P2P, ofreciendo chats temporales en línea sin necesidad de registro." -%}
+{%- assign seo_description = page.description | default: default_description | markdownify | strip_html | newline_to_br | strip_newlines | replace: '<br />', ' ' | escape_once | strip -%}
+
+{%- assign default_author = "Dylan Meca" -%}
+{%- assign author_name = page.author | default: site.author | default: default_author -%}
+{%- if author_name and author_name.name -%}
+  {%- assign author_name = author_name.name -%}
+{%- endif -%}
+{%- assign author_name = author_name | escape_once -%}
+
+{%- assign google_ver = site.google_site_verification | default: "lBg4RSX2hnEcxA7fWW46cux1hJYk1zvuvF55FjpzZYk" -%}
+{%- assign ms_ver = site.bing_site_verification | default: "4934D978F9E22D0A0239EA507C20F2CF" -%}
+
+{%- if page.canonical_url -%}
+  {%- assign canonical_url = page.canonical_url -%}
+{%- else -%}
+  {%- assign canonical_url = page.url | replace: "index.html", "" | absolute_url -%}
+{%- endif -%}
+
+{%- assign og_site_name = site.og_site_name | default: "p2pchak - un chat p2p en línea" -%}
+{%- assign og_title = page.title | default: site.title | default: "p2pchak" -%}
+{%- assign og_url = canonical_url -%}
+{%- assign og_description = seo_description -%}
+
+{%- assign twitter_site = site.twitter.username | default: "meca_dylan" -%}
+{%- assign twitter_site = twitter_site | replace: "@", "" -%}
+
+<meta name="description" content="{{ seo_description }}">
+<meta name="author" content="{{ author_name }}">
+<meta name="google-site-verification" content="{{ google_ver }}" />
+<meta name="msvalidate.01" content="{{ ms_ver }}" />
+
+<!-- Open Graph -->
+<meta property="og:type" content="website">
+<meta property="og:locale" content="{{ site.locale | default: 'es_ES' | replace: '-', '_' }}">
+<meta property="og:site_name" content="{{ og_site_name }}">
+<meta property="og:title" content="{{ og_title | markdownify | strip_html | strip_newlines | escape_once }}">
+<meta property="og:url" content="{{ og_url }}">
+<meta property="og:description" content="{{ og_description }}">
+
+<!-- Twitter -->
+<meta name="twitter:site" content="@{{ twitter_site }}">
+<meta name="twitter:title" content="{{ og_site_name }}">
+<meta name="twitter:description" content="{{ og_description }}">
+<meta name="twitter:url" content="{{ og_url }}">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="{{ canonical_url }}">
+
+<!-- Structured data -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": {{ og_title | default: "p2pchak" | jsonify }},
+  "url": {{ og_url | jsonify }},
+  "description": {{ og_description | jsonify }}
+}
+</script>
+
+<!-- Favicons (ico + png) -->
+<link rel="icon" href="{{ site.favicon | default: '/favicon.ico' }}" type="image/x-icon">
+<link rel="icon" href="{{ site.favicon_png | default: '/icons/favicon.png' }}" type="image/png">
+<!-- end _includes/seo.html -->

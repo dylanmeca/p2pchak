@@ -1,15 +1,15 @@
 const CACHE_NAME = 'p2pchak-cache-v1';
-const OFFLINE_URL = '/offline.html';
+const OFFLINE_URL = '/app/offline.html';
 
 // Lista de recursos a cachear en la instalación
 const ASSETS = [
   '/',
-  '/index.html',
-  '/estilos.css',
-  '/chat.js',
-  '/favicon.png',
+  '/app/index.html',
+  '/app/estilos.css',
+  '/app/chat.js',
+  '/icons/favicon.png',
   '/favicon.ico',
-  '/manifest.json',
+  '/app/manifest.json',
   OFFLINE_URL,
   '/icons/icon-192.png',
   '/icons/icon-512.png'
@@ -73,7 +73,7 @@ self.addEventListener('fetch', event => {
         return networkResponse;
       }).catch(() => {
         // nada en cache y fallo en red -> si es petición de imagen, se podría devolver un placeholder opcional
-        return caches.match('/favicon.png');
+        return caches.match('/icons/favicon.png');
       });
     })
   );

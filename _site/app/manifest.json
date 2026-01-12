@@ -1,0 +1,23 @@
+{
+  "name": "p2pchak",
+  "short_name": "p2pchak",
+  "description": "p2pchak es un servicio de comunicación privada que utiliza la tecnología P2P, ofreciendo chats temporales en línea sin necesidad de registro.",
+  "start_url": "/app/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#001224",
+  "theme_color": "#001224",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
