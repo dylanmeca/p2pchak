@@ -81,21 +81,6 @@
     }
     /* Asegurar que el header interior tenga un poco de separación */
     .top .meta-row{ margin-top:8px; display:flex; gap:8px; align-items:center; justify-content:center; flex-wrap:wrap; }
-
-    /* site-desc-wrapper inline fallback (kept from original) */
-    .site-desc-wrapper {
-      display: inline-block;
-      text-align: left;
-      margin: 0 auto;
-      max-width: 720px;
-      padding: 20px;
-      border: 1px solid rgba(255,255,255,0.15);
-      border-radius: 12px;
-    }
-    .site-desc-wrapper ol,
-    .site-desc-wrapper ul { margin-left: 1.2em; padding-left: 0; }
-    .site-desc-wrapper li { margin: 0.25em 0; }
-    .site-desc-wrapper strong { display: block; margin-top: 0.6em; margin-bottom: 0.35em; }
   </style>
 
   <link rel="stylesheet" href="estilos.css">
@@ -111,20 +96,20 @@
 
         <!-- favicon.png mostrado a la derecha del título y escalado al mismo tamaño -->
         <img src="/favicon.png" alt="p2pchak logo" class="site-favicon" aria-hidden="false" />
-      </div>
+      </div><br />
 
-      <div class="site-desc-wrapper">
-        <p class="site-desc">
-          🟢 Conéctate directamente con tus conocidos, comparte archivos o chatea, sin historial ni registros en servidores.
-        </p>
-
-        <strong class="site-desc">🔑 Cómo conectarte:</strong>
+      <div style="max-width: 720px; margin: 0 auto; padding: 20px; border: 1px solid rgba(255,255,255,0.15); border-radius: 12px;" class="site-desc-wrapper">
+      <p class="site-desc">
+         🟢 Conéctate directamente con tus conocidos, comparte archivos o chatea, sin historial ni registros en servidores.
+      </p>
+      
+      <strong class="site-desc">🔑 Cómo conectarte:</strong>
         <ol class="site-desc">
           <li>Copia y comparte tu ID con la persona con la que deseas chatear.</li>
           <li>La otra persona introduce tu ID y ¡conecta!</li>
-        </ol>
-
-        <strong class="site-desc">🔒 Por qué elegir p2pchak:</strong>
+       </ol>
+      
+       <strong class="site-desc">🔒 Por qué elegir p2pchak:</strong>
         <ul class="site-desc">
           <li>Chats sin historial y temporales que se eliminan automáticamente al cerrar la pestaña.</li>
           <li>Compartir archivos entre usuarios, gratis.</li>
@@ -132,7 +117,41 @@
           <li>No requiere registro ni pasos adicionales.</li>
         </ul>
       </div>
-
+      
+      <!-- CSS inline dentro del HTML -->
+      <style>
+        /* Contenedor que centra el bloque */
+        .site-desc-wrapper {
+          display: inline-block;      /* tamaño del bloque se ajusta al contenido */
+          text-align: left;           /* texto dentro alineado a la izquierda */
+          margin: 0 auto;             /* centra el bloque en la página */
+        }
+      
+        /* Opcional: ancho máximo para no ocupar todo el ancho */
+        .site-desc-wrapper {
+          max-width: 720px;
+        }
+      
+        /* Sangría y espaciado para listas dentro del bloque */
+        .site-desc-wrapper ol,
+        .site-desc-wrapper ul {
+          margin-left: 1.2em;         /* sangría de listas */
+          padding-left: 0;
+        }
+      
+        /* Espacio entre items de la lista */
+        .site-desc-wrapper li {
+          margin: 0.25em 0;
+        }
+      
+        /* Encabezados strong dentro del bloque */
+        .site-desc-wrapper strong {
+          display: block;
+          margin-top: 0.6em;
+          margin-bottom: 0.35em;
+        }
+      </style>
+    
       <div class="meta-row" aria-hidden="false">
         <a href="https://github.com/dylanmeca/p2pchak" target="_blank" rel="noopener noreferrer" aria-label="Repositorio en GitHub">
           <img src="https://img.shields.io/github/stars/dylanmeca/p2pchak?style=for-the-badge&labelColor=000000&color=555555&logoColor=white" alt="GitHub stars" style="cursor:pointer;">
