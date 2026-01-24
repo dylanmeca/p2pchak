@@ -3,14 +3,14 @@
 
 @import 'jekyll-theme-hacker';
 
-/* --- Palette (match the chat theme) ------------------------------------ */
+/* Paleta (variables) */
 $bg-image-url: "https://plus.unsplash.com/premium_photo-1700996705054-948c1acd0b88?q=80&w=1600&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D";
 $bg-dark-0: #070b16;
 $bg-dark-1: #0b1120;
 
-$accent: #7aa2f7;        // general accent (buttons)
-$accent-2: #8ef0f2;      // cyan highlight
-$lavender: #b57ffb;      // purple accent
+$accent: #7aa2f7 !default;       /* azul claro */
+$accent-2: #8ef0f2 !default;     /* cyan */
+$lavender: #b57ffb !default;     /* púrpura */
 
 $bubble-in-start: #6e3bd6;
 $bubble-in-end:   #3b1f74;
@@ -18,27 +18,28 @@ $bubble-in-end:   #3b1f74;
 $bubble-out-start: #e0f8ff;
 $bubble-out-end:   #88e8ff;
 
-$text: #cfe9ff;
-$text-muted: #9bb0c8;
-$meta-color: #95b9d6;
+$text: #cfe9ff !default;
+$text-muted: #9bb0c8 !default;
+$meta-color: #95b9d6 !default;
 
-/* Shadows / radii */
-$radius-lg: 12px;
-$shadow-soft: 0 12px 40px rgba(4,8,20,0.7);
+$radius-lg: 14px;
+$radius-md: 10px;
+$shadow-soft: 0 14px 40px rgba(4,8,20,0.72);
+$shadow-pop: 0 8px 26px rgba(3,10,25,0.7);
 
-/* Font stacks */
+/* Tipografías */
 $ui-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Inter", sans-serif;
 $mono-font: "SFMono-Regular", Menlo, Monaco, "Roboto Mono", "Courier New", monospace;
 
-/* --- Base / body ------------------------------------------------------ */
-html, body {
-  height: 100% !important;
-}
+/* Reset / base */
+* { box-sizing: border-box !important; }
+html, body { height: 100% !important; }
 body {
   font-family: $ui-font !important;
   color: $text !important;
+  margin: 0 !important;
   background-color: $bg-dark-0 !important;
-  background-image: linear-gradient(180deg, rgba(6,10,20,0.72), rgba(6,8,16,0.78)) , url(#{$bg-image-url}) !important;
+  background-image: linear-gradient(180deg, rgba(6,10,20,0.72), rgba(6,8,16,0.78)), url(#{$bg-image-url}) !important;
   background-size: cover !important;
   background-position: center center !important;
   background-attachment: fixed !important;
@@ -47,238 +48,253 @@ body {
   line-height: 1.5 !important;
 }
 
-/* Container / site wrapper (align with chat .page) */
-.wrapper, .site, .container {
+/* Wrapper / container similar al chat */
+.container, .wrapper, .site, .page {
   max-width: 980px !important;
   margin-left: auto !important;
   margin-right: auto !important;
   padding: 28px 18px !important;
 }
 
-/* --- Header / Title -------------------------------------------------- */
-.site-header, header.site-header {
+/* Header (hero) */
+header {
+  padding: 36px 0 22px !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  flex-direction: column !important;
+  gap: 18px !important;
   text-align: center !important;
-  margin-bottom: 12px !important;
 }
-.site-title, .site-header .site-title, h1.site-title {
+
+/* Title link */
+#a-title {
+  text-decoration: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+}
+#a-title h1, header h1 {
   margin: 0 !important;
-  font-size: 28px !important;
-  font-weight: 700 !important;
+  font-size: 40px !important;
+  font-weight: 800 !important;
   line-height: 1 !important;
+  letter-spacing: -0.02em !important;
   background: linear-gradient(90deg, $accent-2 0%, $lavender 45%, $accent 100%) !important;
   -webkit-background-clip: text !important;
   background-clip: text !important;
   color: transparent !important;
-  text-shadow: 0 2px 14px rgba(18,12,32,0.28) !important;
-  display: inline-block !important;
-  vertical-align: middle !important;
+  text-shadow: 0 6px 30px rgba(11,6,28,0.42) !important;
 }
 
-/* optional favicon to the right of title (if you render it) */
-.site-title + img.site-favicon,
-img.site-favicon {
-  height: 1em !important;
-  width: auto !important;
-  display: inline-block !important;
-  margin-left: 10px !important;
-  vertical-align: middle !important;
-  border-radius: 6px !important;
-  box-shadow: 0 6px 18px rgba(0,0,0,0.45) !important;
-}
-
-/* small description under the title */
-.site-description, .site-desc, .tagline {
-  margin-top: 8px !important;
+/* Subheading under title */
+header h2 {
+  margin: 4px 0 0 !important;
+  font-size: 16px !important;
   color: $text-muted !important;
-  font-size: 14px !important;
+  max-width: 920px !important;
+  font-weight: 600 !important;
+  line-height: 1.45 !important;
 }
 
-/* --- Main content / markdown styling --------------------------------- */
-/* The theme uses .markdown-body / article.post; target both */
-.markdown-body, .post, .page-content, .entry-content {
+/* Hero actions / CTA row */
+#downloads {
+  margin-top: 14px !important;
+  display: flex !important;
+  gap: 12px !important;
+  justify-content: center !important;
+  align-items: center !important;
+  flex-wrap: wrap !important;
+}
+
+/* Buttons (primary + ghost / github style) */
+.btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  padding: 12px 18px !important;
+  border-radius: 12px !important;
+  background: linear-gradient(180deg, $accent, darken($accent,6%)) !important;
+  color: #061025 !important;
+  border: 0 !important;
+  font-weight: 800 !important;
+  font-size: 15px !important;
+  text-decoration: none !important;
+  box-shadow: 0 12px 30px rgba(74,130,250,0.08) !important;
+  transition: transform .12s ease, box-shadow .12s ease !important;
+  cursor: pointer !important;
+}
+.btn:hover, .btn:focus {
+  transform: translateY(-4px) !important;
+  box-shadow: 0 20px 48px rgba(74,130,250,0.12) !important;
+  outline: none !important;
+}
+
+/* Secondary ghost (e.g., GitHub) */
+.btn.btn-github {
   background: transparent !important;
   color: $text !important;
-  font-size: 16px !important;
-  line-height: 1.7 !important;
-  word-wrap: break-word !important;
-  -webkit-font-smoothing: antialiased !important;
+  border: 1px solid rgba(255,255,255,0.06) !important;
+  box-shadow: none !important;
+}
+.btn.btn-github .icon { display:inline-block !important; width:18px !important; height:18px !important; }
+
+/* Main content layout */
+#main_content {
+  margin-top: 22px !important;
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 18px !important;
 }
 
-/* Content panels (emulate chat panels: subtle glass) */
-.markdown-body, .post {
-  padding: 18px 20px !important;
-  border-radius: $radius-lg !important;
+/* On large screens, use two-column layout: left text, right small features panel */
+@media (min-width: 980px) {
+  #main_content {
+    grid-template-columns: 1fr 340px !important;
+    align-items: start !important;
+    gap: 26px !important;
+  }
+}
+
+/* Main text panel: glass card */
+#main_content > :not(.side-card) {
   background: linear-gradient(180deg, rgba(8,12,22,0.48), rgba(6,8,16,0.44)) !important;
   border: 1px solid rgba(255,255,255,0.03) !important;
+  border-radius: $radius-lg !important;
+  padding: 20px !important;
   box-shadow: $shadow-soft !important;
+  color: $text !important;
 }
 
-/* Headings */
-.markdown-body h1, .post h1,
-.markdown-body h2, .post h2,
-.markdown-body h3, .post h3 {
-  color: $text !important;
-  margin-top: 1.1em !important;
-  margin-bottom: 0.45em !important;
-  line-height: 1.15 !important;
+/* Side card (features / quick tips) */
+.side-card {
+  background: linear-gradient(180deg, rgba(12,14,22,0.5), rgba(8,10,18,0.36)) !important;
+  border: 1px solid rgba(255,255,255,0.03) !important;
+  border-radius: 12px !important;
+  padding: 16px !important;
+  box-shadow: 0 10px 28px rgba(2,6,20,0.48) !important;
 }
-.markdown-body h1, .post h1 {
-  font-size: 1.6rem !important;
+
+/* Headings inside main content */
+#main_content h2 {
+  font-size: 20px !important;
+  margin-top: 0 !important;
+  color: $accent-2 !important;
   font-weight: 800 !important;
-  letter-spacing: -0.02em !important;
 }
-.markdown-body h2, .post h2 { font-size: 1.25rem !important; font-weight: 700 !important; color: $accent-2 !important; }
 
-/* Paragraphs and small text */
-.markdown-body p, .post p {
+/* Lists styling — step list and feature list */
+#main_content ol, #main_content ul {
+  margin-left: 1.2rem !important;
   color: $text !important;
-  margin: 0 0 1em 0 !important;
+  line-height: 1.6 !important;
 }
-.markdown-body small, .post small { color: $text-muted !important; }
+#main_content li {
+  margin: 0.5rem 0 !important;
+  font-weight: 600 !important;
+}
 
-/* Links */
-a {
+/* Accent markers for list items */
+#main_content li::marker {
+  color: $lavender !important;
+}
+
+/* small footer signature */
+.container > a[href*="github"] {
+  color: $text-muted !important;
+  display: inline-block !important;
+  margin-top: 18px !important;
+  text-decoration: none !important;
+}
+.container > a[href*="github"]:hover { color: $accent !important; text-decoration: underline !important; }
+
+/* Utility cards for features (if used) */
+.feature, .feature-card {
+  display: block !important;
+  padding: 14px !important;
+  border-radius: 12px !important;
+  background: linear-gradient(180deg, rgba(10,14,22,0.36), rgba(6,8,14,0.22)) !important;
+  border: 1px solid rgba(255,255,255,0.02) !important;
+  margin-bottom: 12px !important;
+}
+
+/* Inline code / kbd visualization */
+kbd, .kbd {
+  background: rgba(255,255,255,0.02) !important;
+  padding: 4px 8px !important;
+  border-radius: 6px !important;
+  font-family: $mono-font !important;
+  color: $accent-2 !important;
+  font-weight: 700 !important;
+}
+
+/* Make headings in the small right column more compact */
+.side-card h3 {
+  margin: 4px 0 8px !important;
+  font-size: 16px !important;
+  color: $lavender !important;
+}
+
+/* Blockquote style */
+blockquote {
+  border-left: 3px solid rgba(181,127,251,0.18) !important;
+  padding: 12px 14px !important;
+  border-radius: 8px !important;
+  background: linear-gradient(90deg, rgba(122,90,240,0.02), transparent) !important;
+  color: $text-muted !important;
+  margin: 12px 0 !important;
+}
+
+/* Code blocks */
+pre, code {
+  font-family: $mono-font !important;
+  background: linear-gradient(180deg, rgba(12,16,24,0.7), rgba(8,12,20,0.6)) !important;
+  color: #e6eef6 !important;
+  border-radius: 10px !important;
+  padding: 12px !important;
+}
+
+/* Accessibility: focus states */
+a:focus, button:focus, input:focus {
+  outline: none !important;
+  box-shadow: 0 0 0 6px rgba(142,240,242,0.08) !important;
+  border-radius: 8px !important;
+}
+
+/* Footer / copyright small */
+.container > a[rel="author"], .site-footer a {
+  color: $text-muted !important;
+  font-size: 13px !important;
+  text-decoration: none !important;
+}
+.site-footer a:hover { color: $accent !important; }
+
+/* Mobile adjustments (tighten hero, stack layout) */
+@media (max-width: 820px) {
+  header h1 { font-size: 28px !important; }
+  header h2 { font-size: 14px !important; max-width: 92% !important; }
+  #main_content { grid-template-columns: 1fr !important; gap: 12px !important; }
+  .container { padding: 16px 12px !important; }
+}
+
+/* Micro-animations: subtle float for hero CTA for premium feel */
+@keyframes float-y {
+  0% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+  100% { transform: translateY(0); }
+}
+.btn {
+  will-change: transform !important;
+}
+.btn:hover { animation: float-y 500ms ease-in-out !important; }
+
+/* Ensure links inside main content (file links etc.) match chat link style */
+#main_content a {
   color: $accent-2 !important;
   text-decoration: none !important;
   border-bottom: 1px dashed rgba(142,240,242,0.12) !important;
 }
-a:hover, a:focus {
-  color: $accent !important;
-  text-decoration: underline !important;
-  outline: none !important;
-  box-shadow: 0 6px 18px rgba(122,162,247,0.06) !important;
-}
-
-/* Lists (match chat lists look) */
-.markdown-body ul, .post ul,
-.markdown-body ol, .post ol {
-  margin-left: 1.1rem !important;
-  margin-bottom: 1rem !important;
-  color: $text !important;
-}
-
-/* Code blocks and inline code — TokyoNight-ish */
-.markdown-body pre, .post pre {
-  background: linear-gradient(180deg, rgba(12,16,24,0.7), rgba(8,12,20,0.6)) !important;
-  color: #e6eef6 !important;
-  border: 1px solid rgba(255,255,255,0.03) !important;
-  padding: 14px !important;
-  border-radius: 10px !important;
-  overflow: auto !important;
-  font-family: $mono-font !important;
-  font-size: 13px !important;
-  box-shadow: 0 8px 24px rgba(4,8,20,0.6) !important;
-}
-.markdown-body code, .post code {
-  background: rgba(255,255,255,0.02) !important;
-  padding: 2px 6px !important;
-  border-radius: 6px !important;
-  font-family: $mono-font !important;
-  font-size: 13px !important;
-  color: $accent-2 !important;
-}
-
-/* Blockquotes */
-blockquote {
-  border-left: 3px solid rgba(181,127,251,0.18) !important;
-  padding-left: 12px !important;
-  margin-left: 0 !important;
-  color: $text-muted !important;
-  background: linear-gradient(90deg, rgba(122,90,240,0.02), transparent) !important;
-  border-radius: 8px !important;
-  padding: 10px 12px !important;
-}
-
-/* Tables: soft glass */
-.markdown-body table, .post table {
-  border-collapse: collapse !important;
-  width: 100% !important;
-  background: rgba(255,255,255,0.01) !important;
-  border-radius: 8px !important;
-  overflow: hidden !important;
-}
-.markdown-body th, .post th {
-  text-align: left !important;
-  padding: 10px !important;
-  background: rgba(255,255,255,0.02) !important;
-  color: $accent-2 !important;
-}
-.markdown-body td, .post td {
-  padding: 10px !important;
-  border-top: 1px solid rgba(255,255,255,0.02) !important;
-  color: $text !important;
-}
-
-/* Horizontal rule */
-hr {
-  border: 0 !important;
-  height: 1px !important;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.03), transparent) !important;
-  margin: 1.2rem 0 !important;
-}
-
-/* --- Small "card" block for steps / features to echo the site intro --- */
-.feature-card, .info-card {
-  display: block !important;
-  padding: 16px !important;
-  border-radius: 12px !important;
-  background: linear-gradient(180deg, rgba(12,14,22,0.44), rgba(8,10,18,0.36)) !important;
-  border: 1px solid rgba(255,255,255,0.03) !important;
-  box-shadow: 0 10px 26px rgba(2,6,20,0.48) !important;
-  margin-bottom: 1rem !important;
-}
-.feature-card h3 { margin-top: 0 !important; color: $accent-2 !important; }
-
-/* Buttons (make them similar to chat buttons) */
-.btn, .button, .page .actions a {
-  display: inline-block !important;
-  padding: 8px 14px !important;
-  border-radius: 10px !important;
-  font-weight: 700 !important;
-  font-size: 14px !important;
-  text-decoration: none !important;
-  border: 0 !important;
-  cursor: pointer !important;
-  transition: transform .12s !important, box-shadow .12s !important;
-}
-.btn-primary, .button-primary, .actions .primary {
-  background: linear-gradient(180deg, $accent, darken($accent, 6%)) !important;
-  color: #061025 !important;
-  box-shadow: 0 10px 24px rgba(74,130,250,0.08) !important;
-}
-.btn-ghost, .button-ghost {
-  background: transparent !important;
-  border: 1px solid rgba(255,255,255,0.03) !important;
-  color: $text !important;
-}
-
-/* --- Utility / small screen adjustments ------------------------------- */
-@media (max-width: 820px) {
-  .wrapper, .site, .container {
-    padding: 12px !important;
-  }
-  .site-title { font-size: 20px !important; }
-  .markdown-body, .post { padding: 14px !important; border-radius: 10px !important; }
-}
-
-/* Accessibility focus outlines */
-a:focus, button:focus, input:focus, .btn:focus {
-  outline: none !important;
-  box-shadow: 0 0 0 4px rgba(142,240,242,0.08) !important;
-  border-radius: 6px !important;
-}
-
-/* Minor helpers for consistent spacing in the homepage content you showed */
-.home-intro {
-  max-width: 720px !important;
-  margin: 18px auto !important;
-}
-.home-intro ol, .home-intro ul {
-  margin-left: 1.2rem !important;
-  margin-bottom: 1rem !important;
-}
-
-/* Keep code blocks and preblocks visually distinct but coherent */
-.kbd, kbd { background: rgba(255,255,255,0.02) !important; padding: 4px 8px !important; border-radius: 6px !important; font-family: $mono-font !important; }
+#main_content a:hover { color: $accent !important; text-decoration: underline !important; }
 
 /* End of style overrides */
