@@ -5,7 +5,7 @@
 
 /* === Variables (TokyoNight-derived, ajustadas para más contraste) === */
 :root{
-  --bg-image-url: url('https://unsplash.com/es/fotos/una-montana-cubierta-de-niebla-y-arboles--WvHwGJBHwE?auto=format&fit=crop&w=1600&q=80'); 
+  --bg-image-url: url('https://unsplash.com/es/fotos/una-montana-cubierta-de-niebla-y-arboles--WvHwGJBHwE?auto=format&fit=crop&w=1600'); 
   /* Nota: si prefieres otra imagen reemplaza la URL arriba por la que quieras */
 
   --bg-0: rgba(6,10,20,0.88);            /* color base oscuro usado junto al fondo */
@@ -334,4 +334,5 @@ button:focus, input:focus, .message-input:focus, .btn-icon:focus { outline:none;
 /* utilities */
 .hidden{ display:none !important; }
 .center{ display:flex; align-items:center; justify-content:center; }
+
 
