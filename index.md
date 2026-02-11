@@ -1,6 +1,6 @@
 ---
 layout: default
-title: "p2pchak - Chat P2P en línea sin registro"
+title: "p2pchak - Chat P2P Online sin registro"
 ---
 
 ## 🔑 Cómo conectarte:
