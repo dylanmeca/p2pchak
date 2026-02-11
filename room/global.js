@@ -1,4 +1,4 @@
-// global.js — FP + salto + colisión tipo Minecraft + móvil
+// global.js — FP + salto + colisión tipo Minecraft + colocación por cara + móvil
 (() => {
   /* -------------------- Setup basic scene & renderer -------------------- */
   const canvas = document.getElementById('c');
@@ -109,7 +109,6 @@
 
   /* -------------------- Block queries / utility -------------------- */
   function highestBlockTopAt(ix, iz) {
-    // devuelve la altura Y de la superficie (numero real) en esa celda: 0 si solo suelo
     if (ix < 0 || ix >= SIZE || iz < 0 || iz >= SIZE) return 0;
     for (let y = 63; y >= 0; y--) {
       if (blocks.has(`${ix},${y},${iz}`)) {
@@ -123,10 +122,17 @@
     return blocks.has(`${ix},${iy},${iz}`);
   }
 
+  // dada una malla de bloque, devuelve sus coords enteras ix,iy,iz
+  function meshToCell(mesh) {
+    return {
+      ix: Math.floor(mesh.position.x),
+      iy: Math.floor(mesh.position.y),
+      iz: Math.floor(mesh.position.z)
+    };
+  }
+
   /* -------------------- Movement collision (step-up) -------------------- */
   function canMoveTo(targetX, targetZ, feetY) {
-    // approximate collision using nearby block tops and circle collision
-    // return { allowed: bool, newFeetY: number }
     const r = playerRadius + 0.05;
     const minX = Math.floor(targetX - r);
     const maxX = Math.floor(targetX + r);
@@ -137,39 +143,26 @@
     for (let ix = minX; ix <= maxX; ix++) {
       for (let iz = minZ; iz <= maxZ; iz++) {
         if (ix < 0 || ix >= SIZE || iz < 0 || iz >= SIZE) continue;
-        // skip cells outside island circle
         const cx = ix - (SIZE / 2 - 0.5);
         const cz = iz - (SIZE / 2 - 0.5);
         if (Math.sqrt(cx*cx + cz*cz) > ISLAND_RADIUS) continue;
 
         const top = highestBlockTopAt(ix, iz); // top surface y
         if (top === 0) continue;
-        // distance in XZ from player's center to cell center
-        const cellCenterX = ix + 0.5;
-        const cellCenterZ = iz + 0.5;
-        const dx = targetX - cellCenterX;
-        const dz = targetZ - cellCenterZ;
-        const distSq = dx*dx + dz*dz;
-        const minDist = r + Math.SQRT1_2 * 1; // sqrt(0.5^2+0.5^2) ~ cell inscribed
-        // Better: check circle vs square (cell)
         const closestX = Math.max(ix, Math.min(targetX, ix+1));
         const closestZ = Math.max(iz, Math.min(targetZ, iz+1));
         const ddx = targetX - closestX;
         const ddz = targetZ - closestZ;
         const d2 = ddx*ddx + ddz*ddz;
         if (d2 < (r * r)) {
-          // we'd intersect horizontally; check vertical relationship
           if (top > feetY + stepHeight) {
-            // block too high to step onto
             return { allowed: false, newFeetY: feetY };
           } else {
-            // can step up onto this block; candidate feetY becomes max
             if (top > candidateFeetY) candidateFeetY = top;
           }
         }
       }
     }
-    // allowed; candidateFeetY is possibly raised to step onto blocks
     return { allowed: true, newFeetY: candidateFeetY };
   }
 
@@ -181,37 +174,64 @@
     camera.quaternion.copy(quat);
   }
 
-  /* -------------------- Interaction helpers -------------------- */
-  function screenToPointDirection(clientX, clientY) {
-    if (document.pointerLockElement === canvas) {
-      const origin = camera.position.clone();
-      const dir = new THREE.Vector3();
-      camera.getWorldDirection(dir);
-      raycaster.set(origin, dir);
-    } else {
-      const rect = renderer.domElement.getBoundingClientRect();
-      mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
-      mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
-      raycaster.setFromCamera(mouse, camera);
-    }
-    const intersects = raycaster.intersectObjects([ground, mask], false);
-    if (intersects.length > 0) return intersects[0].point;
-    return null;
+  /* -------------------- Interaction helpers: place on face -------------------- */
+  function getFirstIntersect(clientX, clientY) {
+    // raycast against blocks first, then ground/mask
+    const targets = Array.from(blocks.values());
+    targets.push(ground, mask);
+    const rect = renderer.domElement.getBoundingClientRect();
+    mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(mouse, camera);
+    return raycaster.intersectObjects(targets, false);
   }
 
+  function placeAdjacentByFace(intersect) {
+    if (!intersect || !intersect.object) return false;
+    const obj = intersect.object;
+    // if intersect object is not one of block meshes, fallback
+    const maybe = meshToCell(obj);
+    const keyCandidate = `${maybe.ix},${maybe.iy},${maybe.iz}`;
+    if (!blocks.has(keyCandidate)) return false;
+    // compute world normal of the face clicked
+    const localNormal = intersect.face.normal.clone();
+    const normalMatrix = new THREE.Matrix3().getNormalMatrix(obj.matrixWorld);
+    const worldNormal = localNormal.applyMatrix3(normalMatrix).normalize();
+    // round to integer direction
+    const dx = Math.round(worldNormal.x);
+    const dy = Math.round(worldNormal.y);
+    const dz = Math.round(worldNormal.z);
+    const tx = maybe.ix + dx;
+    const ty = maybe.iy + dy;
+    const tz = maybe.iz + dz;
+    // try to place at tx,ty,tz (placeBlockAt will validate bounds & collisions)
+    return placeBlockAt(tx, ty, tz);
+  }
+
+  function removeMeshIntersect(intersect) {
+    if (!intersect || !intersect.object) return false;
+    const obj = intersect.object;
+    const maybe = meshToCell(obj);
+    const keyCandidate = `${maybe.ix},${maybe.iy},${maybe.iz}`;
+    if (blocks.has(keyCandidate)) {
+      removeBlockAt(maybe.ix, maybe.iy, maybe.iz);
+      return true;
+    }
+    return false;
+  }
+
+  /* -------------------- Place / remove functions (same as antes) -------------------- */
   function placeBlockAt(ix, iy, iz) {
     if (ix < 0 || ix >= SIZE || iz < 0 || iz >= SIZE) return false;
     const cx = ix - (SIZE / 2 - 0.5);
     const cz = iz - (SIZE / 2 - 0.5);
     if (Math.sqrt(cx * cx + cz * cz) > ISLAND_RADIUS) return false;
-    // don't allow placing inside player's body: check if cell intersects player's capsule
+    // don't allow placing inside player's body
     const px = player.position.x, pz = player.position.z, feetY = player.position.y;
     const playerTop = feetY + playerHeight;
-    // if the block's vertical span intersects player's body range, and xz distance < radius+0.5 block -> disallow
     const blockMinY = iy;
     const blockMaxY = iy + 1;
     if (!(blockMaxY <= feetY || blockMinY >= playerTop)) {
-      // potential vertical overlap
       const closestX = Math.max(ix, Math.min(px, ix + 1));
       const closestZ = Math.max(iz, Math.min(pz, iz + 1));
       const dx = px - closestX;
@@ -246,13 +266,14 @@
   }
 
   /* -------------------- Desktop input (pointer lock + keyboard) -------------------- */
+  const isTouchDevice = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
   canvas.addEventListener('click', () => {
     if (isTouchDevice) return;
     if (document.pointerLockElement !== canvas) {
       canvas.requestPointerLock?.();
     }
   });
-  document.addEventListener('pointerlockchange', () => { /* no-op; mousemove checks pointer lock */ });
+  document.addEventListener('pointerlockchange', () => { /* no-op */ });
 
   window.addEventListener('keydown', (e) => {
     if (e.code === 'Space') { e.preventDefault(); tryJump(); return; }
@@ -276,33 +297,66 @@
   }
   document.addEventListener('mousemove', onMouseMove);
 
+  // pointerdown: place on face if clicked a block; remove block clicked on right-click
   renderer.domElement.addEventListener('pointerdown', (ev) => {
     ev.preventDefault();
-    const pt = screenToPointDirection(ev.clientX, ev.clientY);
-    if (!pt) return;
-    const gx = snapCoord(pt.x);
-    const gz = snapCoord(pt.z);
-
     if (ev.button === 0) {
-      // place on lowest free layer
-      let y = 0;
-      while (y < 64) {
-        const key = `${gx},${y},${gz}`;
-        if (!blocks.has(key)) break;
-        y++;
+      // left click: try place adjacent to block face, fallback to lowest free on column
+      const rect = renderer.domElement.getBoundingClientRect();
+      const intersects = getFirstIntersect(ev.clientX, ev.clientY);
+      if (intersects.length > 0) {
+        // prefer the first intersect that is a block
+        const firstBlockHit = intersects.find(i => {
+          const o = i.object;
+          const idx = `${Math.floor(o.position.x)},${Math.floor(o.position.y)},${Math.floor(o.position.z)}`;
+          return blocks.has(idx);
+        });
+        if (firstBlockHit) {
+          const placed = placeAdjacentByFace(firstBlockHit);
+          if (placed) { updateStats(); return; }
+        }
+        // else, fallback to ground intersection (first intersect that is ground/mask)
+        const groundHit = intersects.find(i => i.object === ground || i.object === mask);
+        if (groundHit) {
+          const pt = groundHit.point;
+          const gx = snapCoord(pt.x), gz = snapCoord(pt.z);
+          let y = 0;
+          while (y < 64) {
+            if (!blocks.has(`${gx},${y},${gz}`)) break;
+            y++;
+          }
+          if (y < 64) { placeBlockAt(gx, y, gz); updateStats(); }
+        }
       }
-      if (y < 64) { placeBlockAt(gx, y, gz); updateStats(); }
     } else if (ev.button === 2) {
-      for (let y = 63; y >= 0; y--) {
-        const key = `${gx},${y},${gz}`;
-        if (blocks.has(key)) { removeBlockAt(gx, y, gz); updateStats(); break; }
+      // right click: if clicked a block, remove that block; else remove top of column
+      const intersects = getFirstIntersect(ev.clientX, ev.clientY);
+      if (intersects.length > 0) {
+        const firstBlockHit = intersects.find(i => {
+          const o = i.object;
+          const idx = `${Math.floor(o.position.x)},${Math.floor(o.position.y)},${Math.floor(o.position.z)}`;
+          return blocks.has(idx);
+        });
+        if (firstBlockHit) {
+          removeMeshIntersect(firstBlockHit);
+          updateStats();
+          return;
+        }
+        const groundHit = intersects.find(i => i.object === ground || i.object === mask);
+        if (groundHit) {
+          const pt = groundHit.point;
+          const gx = snapCoord(pt.x), gz = snapCoord(pt.z);
+          for (let y = 63; y >= 0; y--) {
+            const key = `${gx},${y},${gz}`;
+            if (blocks.has(key)) { removeBlockAt(gx, y, gz); updateStats(); break; }
+          }
+        }
       }
     }
   });
   renderer.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
 
-  /* -------------------- Mobile detection + controls (joystick + touch look) -------------------- */
-  const isTouchDevice = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+  /* -------------------- Mobile controls + look (as before) -------------------- */
   const touchControls = document.getElementById('touch-controls');
   const joyBase = document.getElementById('joy-base');
   const joyKnob = document.getElementById('joy-knob');
@@ -319,123 +373,130 @@
     touchControls.classList.add('hidden');
   }
 
-  /* -------------------- Joystick implementation -------------------- */
-  let joyActive = false;
-  let joyId = null;
-  let joyStart = { x: 0, y: 0 };
+  /* Joystick (same as before) */
+  let joyActive = false, joyId = null, joyStart = {x:0,y:0};
   const JOY_RADIUS = 56;
-
-  function joySetKnob(px, py) { joyKnob.style.transform = `translate(${px}px, ${py}px)`; }
-  function joyReset() { joyActive = false; joyId = null; input.forward = 0; input.right = 0; joySetKnob(0,0); }
+  function joySetKnob(px,py){ joyKnob.style.transform = `translate(${px}px, ${py}px)`; }
+  function joyReset(){ joyActive=false; joyId=null; input.forward=0; input.right=0; joySetKnob(0,0); }
 
   joyBase.addEventListener('touchstart', (e) => {
     e.preventDefault();
     const t = e.changedTouches[0];
     joyActive = true; joyId = t.identifier;
     const rect = joyBase.getBoundingClientRect();
-    joyStart.x = rect.left + rect.width / 2;
-    joyStart.y = rect.top + rect.height / 2;
+    joyStart.x = rect.left + rect.width/2; joyStart.y = rect.top + rect.height/2;
     joySetKnob(0,0);
-  }, { passive: false });
+  }, { passive:false });
 
   joyBase.addEventListener('touchmove', (e) => {
     if (!joyActive) return;
-    for (let i=0;i<e.changedTouches.length;i++) {
+    for (let i=0;i<e.changedTouches.length;i++){
       const t = e.changedTouches[i];
       if (t.identifier !== joyId) continue;
-      const dx = t.clientX - joyStart.x;
-      const dy = t.clientY - joyStart.y;
-      const dist = Math.hypot(dx, dy);
-      const clamped = dist > JOY_RADIUS ? JOY_RADIUS / dist : 1;
-      const nx = dx * clamped;
-      const ny = dy * clamped;
-      joySetKnob(nx, ny);
-      input.forward = -ny / JOY_RADIUS;
-      input.right = nx / JOY_RADIUS;
+      const dx = t.clientX - joyStart.x; const dy = t.clientY - joyStart.y;
+      const dist = Math.hypot(dx,dy); const clamped = dist > JOY_RADIUS ? JOY_RADIUS/dist : 1;
+      const nx = dx*clamped; const ny = dy*clamped;
+      joySetKnob(nx,ny);
+      input.forward = -ny / JOY_RADIUS; input.right = nx / JOY_RADIUS;
     }
     e.preventDefault();
-  }, { passive: false });
+  }, { passive:false });
 
   joyBase.addEventListener('touchend', (e) => {
-    for (let i=0;i<e.changedTouches.length;i++) {
+    for (let i=0;i<e.changedTouches.length;i++){
       const t = e.changedTouches[i];
       if (t.identifier === joyId) joyReset();
     }
     e.preventDefault();
-  }, { passive: false });
+  }, { passive:false });
 
-  /* -------------------- Touch look (right half) -------------------- */
-  let lookId = null;
-  let lastTouch = null;
-  function onTouchStartLook(t) { lookId = t.identifier; lastTouch = { x: t.clientX, y: t.clientY }; }
-  function onTouchMoveLook(t) {
+  /* Touch look (right half) */
+  let lookId = null, lastTouch = null;
+  function onTouchStartLook(t){ lookId=t.identifier; lastTouch={x:t.clientX,y:t.clientY}; }
+  function onTouchMoveLook(t){
     if (lookId !== t.identifier || !lastTouch) return;
-    const dx = t.clientX - lastTouch.x;
-    const dy = t.clientY - lastTouch.y;
-    yaw -= dx * sensitivityTouch;
-    pitch -= dy * sensitivityTouch;
+    const dx = t.clientX - lastTouch.x, dy = t.clientY - lastTouch.y;
+    yaw -= dx * sensitivityTouch; pitch -= dy * sensitivityTouch;
     pitch = Math.max(-pitchLimit, Math.min(pitchLimit, pitch));
-    lastTouch = { x: t.clientX, y: t.clientY };
+    lastTouch = {x:t.clientX,y:t.clientY};
   }
-  function onTouchEndLook(t) { if (lookId === t.identifier) { lookId = null; lastTouch = null; } }
+  function onTouchEndLook(t){ if (lookId===t.identifier) { lookId=null; lastTouch=null; } }
 
-  window.addEventListener('touchstart', (e) => {
-    for (let i=0;i<e.changedTouches.length;i++) {
+  window.addEventListener('touchstart', (e)=> {
+    for (let i=0;i<e.changedTouches.length;i++){
       const t = e.changedTouches[i];
       if (t.clientX > window.innerWidth * 0.4) onTouchStartLook(t);
     }
-  }, { passive: false });
+  }, { passive:false });
 
-  window.addEventListener('touchmove', (e) => {
-    for (let i=0;i<e.changedTouches.length;i++) {
+  window.addEventListener('touchmove', (e)=> {
+    for (let i=0;i<e.changedTouches.length;i++){
       const t = e.changedTouches[i];
       if (t.clientX > window.innerWidth * 0.4) onTouchMoveLook(t);
     }
-  }, { passive: false });
+  }, { passive:false });
 
-  window.addEventListener('touchend', (e) => {
-    for (let i=0;i<e.changedTouches.length;i++) {
+  window.addEventListener('touchend', (e)=> {
+    for (let i=0;i<e.changedTouches.length;i++){
       const t = e.changedTouches[i];
       if (t.clientX > window.innerWidth * 0.4) onTouchEndLook(t);
     }
-  }, { passive: false });
+  }, { passive:false });
 
-  /* -------------------- Mobile buttons -------------------- */
-  btnJump.addEventListener('touchstart', (e) => { e.preventDefault(); tryJump(); }, { passive: false });
-  btnPlace.addEventListener('touchstart', (e) => { e.preventDefault(); mobilePlace(); }, { passive: false });
-  btnRemove.addEventListener('touchstart', (e) => { e.preventDefault(); mobileRemove(); }, { passive: false });
+  /* Mobile buttons: jump/place/remove (updated to face-placement/remove) */
+  btnJump.addEventListener('touchstart', (e) => { e.preventDefault(); tryJump(); }, { passive:false });
+  btnPlace.addEventListener('touchstart', (e) => { e.preventDefault(); mobilePlace(); }, { passive:false });
+  btnRemove.addEventListener('touchstart', (e) => { e.preventDefault(); mobileRemove(); }, { passive:false });
 
   function mobilePlace() {
+    // center ray
     const origin = camera.position.clone();
     const dir = new THREE.Vector3(); camera.getWorldDirection(dir);
     raycaster.set(origin, dir);
-    const intersects = raycaster.intersectObjects([ground, mask], false);
+    // prepare targets: blocks then ground/mask
+    const targets = Array.from(blocks.values()); targets.push(ground, mask);
+    const intersects = raycaster.intersectObjects(targets, false);
     if (intersects.length === 0) return;
-    const pt = intersects[0].point;
-    const gx = snapCoord(pt.x), gz = snapCoord(pt.z);
-    let y = 0;
-    while (y < 64) { if (!blocks.has(`${gx},${y},${gz}`)) break; y++; }
-    if (y < 64) { placeBlockAt(gx, y, gz); updateStats(); }
+    const firstBlockHit = intersects.find(i => {
+      const o = i.object; const idx = `${Math.floor(o.position.x)},${Math.floor(o.position.y)},${Math.floor(o.position.z)}`;
+      return blocks.has(idx);
+    });
+    if (firstBlockHit) {
+      if (placeAdjacentByFace(firstBlockHit)) { updateStats(); return; }
+    }
+    // fallback to ground hit
+    const groundHit = intersects.find(i => i.object === ground || i.object === mask);
+    if (groundHit) {
+      const pt = groundHit.point;
+      const gx = snapCoord(pt.x), gz = snapCoord(pt.z);
+      let y = 0;
+      while (y < 64) { if (!blocks.has(`${gx},${y},${gz}`)) break; y++; }
+      if (y < 64) { placeBlockAt(gx,y,gz); updateStats(); }
+    }
   }
+
   function mobileRemove() {
     const origin = camera.position.clone();
     const dir = new THREE.Vector3(); camera.getWorldDirection(dir);
     raycaster.set(origin, dir);
-    const intersects = raycaster.intersectObjects([ground, mask], false);
+    const targets = Array.from(blocks.values()); targets.push(ground, mask);
+    const intersects = raycaster.intersectObjects(targets, false);
     if (intersects.length === 0) return;
-    const pt = intersects[0].point;
-    const gx = snapCoord(pt.x), gz = snapCoord(pt.z);
-    for (let y = 63; y >= 0; y--) {
-      if (blocks.has(`${gx},${y},${gz}`)) { removeBlockAt(gx,y,gz); updateStats(); break; }
+    const firstBlockHit = intersects.find(i => {
+      const o = i.object; const idx = `${Math.floor(o.position.x)},${Math.floor(o.position.y)},${Math.floor(o.position.z)}`;
+      return blocks.has(idx);
+    });
+    if (firstBlockHit) { removeMeshIntersect(firstBlockHit); updateStats(); return; }
+    const groundHit = intersects.find(i => i.object === ground || i.object === mask);
+    if (groundHit) {
+      const pt = groundHit.point; const gx = snapCoord(pt.x), gz = snapCoord(pt.z);
+      for (let y=63;y>=0;y--) { if (blocks.has(`${gx},${y},${gz}`)) { removeBlockAt(gx,y,gz); updateStats(); break; } }
     }
   }
 
   /* -------------------- Jump logic -------------------- */
   function tryJump() {
-    if (canJump) {
-      velY = JUMP_VELOCITY;
-      canJump = false;
-    }
+    if (canJump) { velY = JUMP_VELOCITY; canJump = false; }
   }
 
   /* -------------------- Resize handling -------------------- */
@@ -451,13 +512,13 @@
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
 
-    // input mapping (desktop keyboard -> input)
+    // input mapping (keyboard or joystick)
     if (!isTouchDevice) {
       input.forward = (keys.w ? -1 : 0) + (keys.s ? 1 : 0);
       input.right = (keys.d ? 1 : 0) + (keys.a ? -1 : 0);
     }
 
-    // build desired horizontal movement vector in world coords
+    // movement vector in world coords
     const forwardVec = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw)).normalize();
     const rightVec = new THREE.Vector3(Math.sin(yaw + Math.PI / 2), 0, Math.cos(yaw + Math.PI / 2)).normalize();
 
@@ -466,43 +527,37 @@
     move.addScaledVector(rightVec, input.right);
     if (move.lengthSq() > 0) move.normalize();
 
-    // attempt horizontal movement with collision / step-up
+    // desired position
     const desiredX = player.position.x + move.x * walkSpeed * dt;
     const desiredZ = player.position.z + move.z * walkSpeed * dt;
     const feetYBefore = player.position.y;
-    const canMove = canMoveTo(desiredX, desiredZ, feetYBefore);
-    if (canMove.allowed) {
-      // apply step-up if needed
+    const moveTest = canMoveTo(desiredX, desiredZ, feetYBefore);
+    if (moveTest.allowed) {
       player.position.x = desiredX;
       player.position.z = desiredZ;
-      if (canMove.newFeetY > player.position.y) {
-        // step up smoothly
-        player.position.y = canMove.newFeetY;
-        velY = 0;
-        canJump = true;
+      if (moveTest.newFeetY > player.position.y) {
+        player.position.y = moveTest.newFeetY;
+        velY = 0; canJump = true;
       }
     } else {
-      // movement blocked: optionally try sliding along axis X or Z (basic)
       const tryX = canMoveTo(player.position.x + move.x * walkSpeed * dt, player.position.z, player.position.y);
       const tryZ = canMoveTo(player.position.x, player.position.z + move.z * walkSpeed * dt, player.position.y);
       if (tryX.allowed) { player.position.x += move.x * walkSpeed * dt; if (tryX.newFeetY > player.position.y){ player.position.y = tryX.newFeetY; velY = 0; canJump = true; } }
       else if (tryZ.allowed) { player.position.z += move.z * walkSpeed * dt; if (tryZ.newFeetY > player.position.y){ player.position.y = tryZ.newFeetY; velY = 0; canJump = true; } }
-      // else fully blocked
     }
 
-    // apply gravity
+    // gravity
     velY += GRAVITY * dt;
     player.position.y += velY * dt;
 
-    // compute ground under player (highest block under player's grid cell)
+    // compute ground under player (highest block)
     const cellX = Math.floor(player.position.x);
     const cellZ = Math.floor(player.position.z);
     let groundTop = 0;
     if (cellX >= 0 && cellX < SIZE && cellZ >= 0 && cellZ < SIZE) groundTop = highestBlockTopAt(cellX, cellZ);
-    // ensure groundTop at least base plane 0
     groundTop = Math.max(groundTop, 0);
 
-    // collision with ground surface (including blocks)
+    // ground collision including blocks
     const feetY = player.position.y;
     if (feetY <= groundTop + 0.001) {
       player.position.y = groundTop;
@@ -512,7 +567,7 @@
       canJump = false;
     }
 
-    // keep player inside island radius (push back)
+    // keep inside island
     const cx = player.position.x - (SIZE / 2 - 0.5);
     const cz = player.position.z - (SIZE / 2 - 0.5);
     const dist = Math.sqrt(cx*cx + cz*cz);
@@ -522,7 +577,7 @@
       player.position.z = (SIZE / 2 - 0.5) + nz * (ISLAND_RADIUS - 0.5);
     }
 
-    // update camera
+    // camera update
     updateCameraToPlayer();
 
     // render
@@ -537,7 +592,7 @@
   player.position.z = spawnZ + 0.0;
   player.position.y = Math.max(0, highestBlockTopAt(spawnX, spawnZ));
 
-  // place a few decorative blocks to test stepping
+  // decorative blocks to test stepping
   placeBlockAt(spawnX, 1, spawnZ);
   placeBlockAt(spawnX+1, 1, spawnZ);
   placeBlockAt(spawnX+2, 1, spawnZ);
@@ -545,7 +600,7 @@
 
   animate(performance.now());
 
-  /* -------------------- Optional: expose toggle for third person view -------------------- */
+  /* -------------------- Expose helper toggle -------------------- */
   window.toggleThirdPerson = function(show) {
     bodyMesh.visible = !!show;
   };
