@@ -1,15 +1,15 @@
 const CACHE_NAME = 'p2pchak-cache-v1';
-const OFFLINE_URL = '/app/offline.html';
+const OFFLINE_URL = '/room/offline.html';
 
 // Lista de recursos a cachear en la instalación
 const ASSETS = [
   '/',
-  '/app/index.html',
-  '/app/estilos.css',
-  '/app/chat.js',
+  '/room/index.html',
+  '/room/estilos.css',
+  '/room/chat.js',
   '/icons/favicon.png',
   '/favicon.ico',
-  '/app/manifest.json',
+  '/room/manifest.json',
   OFFLINE_URL,
   '/icons/icon-192.png',
   '/icons/icon-512.png'
