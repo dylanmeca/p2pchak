@@ -1,4 +1,4 @@
-// global.js — FP view + salto + adaptaciones móviles (joystick + touch look)
+// global.js — FP + salto + colisión tipo Minecraft + móvil
 (() => {
   /* -------------------- Setup basic scene & renderer -------------------- */
   const canvas = document.getElementById('c');
@@ -67,33 +67,35 @@
 
   function snapCoord(value) { return Math.floor(value + 0.5); }
 
-  /* -------------------- Player + physics (jump) -------------------- */
-  const playerRadius = 0.5;
-  const player = new THREE.Object3D(); // represent position; visible sphere hidden for FP
-  player.position.set(Math.floor(SIZE / 2), playerRadius, Math.floor(SIZE / 2));
+  /* -------------------- Player + physics (jump + collisions) -------------------- */
+  // Representation: player.position.x/z are world coords, player.position.y = feetY
+  const player = new THREE.Object3D();
+  player.position.set(Math.floor(SIZE / 2), 0.0, Math.floor(SIZE / 2)); // feet y will be set by ground test
   scene.add(player);
 
-  // optional visible body (hidden in FP)
-  const bodyGeo = new THREE.SphereGeometry(playerRadius, 16, 12);
+  // visible body (hidden in FP)
+  const playerRadius = 0.35;      // radius of player's capsule
+  const playerHeight = 1.8;       // total standing height
+  const stepHeight = 0.9;         // maximum step-up allowed (≈1 block)
+  const headHeight = 1.6;         // camera offset from feet
+  const bodyGeo = new THREE.CapsuleGeometry(playerRadius, playerHeight - 2*playerRadius, 8, 16);
   const bodyMat = new THREE.MeshStandardMaterial({ color: 0xc0c0c0, metalness: 0.9, roughness: 0.2 });
   const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
+  bodyMesh.visible = false; // keep hidden for FP
   bodyMesh.castShadow = true; bodyMesh.receiveShadow = true;
-  bodyMesh.visible = false; // keep hidden for FP; can toggle later
+  bodyMesh.position.set(0, playerHeight/2, 0); // relative to player
   player.add(bodyMesh);
 
-  const HEAD_HEIGHT = 1.6;
-  const cameraOffset = new THREE.Vector3(0, HEAD_HEIGHT, 0);
-
   // vertical physics
-  let velY = 0; // vertical velocity
-  const GRAVITY = -30; // units/s^2 (tune)
-  const JUMP_VELOCITY = 10; // initial jump velocity (tune)
+  let velY = 0;
+  const GRAVITY = -30;
+  const JUMP_VELOCITY = 9.2;
   let canJump = false;
 
-  // movement state
+  // movement
   const input = { forward: 0, right: 0 };
   const keys = { w: false, a: false, s: false, d: false };
-  const speed = 6;
+  const walkSpeed = 6;
 
   // orientation
   let yaw = 0, pitch = 0;
@@ -105,9 +107,83 @@
   const raycaster = new THREE.Raycaster();
   const mouse = new THREE.Vector2();
 
+  /* -------------------- Block queries / utility -------------------- */
+  function highestBlockTopAt(ix, iz) {
+    // devuelve la altura Y de la superficie (numero real) en esa celda: 0 si solo suelo
+    if (ix < 0 || ix >= SIZE || iz < 0 || iz >= SIZE) return 0;
+    for (let y = 63; y >= 0; y--) {
+      if (blocks.has(`${ix},${y},${iz}`)) {
+        return y + 1; // encima del bloque
+      }
+    }
+    return 0; // suelo base
+  }
+
+  function isCellOccupied(ix, iy, iz) {
+    return blocks.has(`${ix},${iy},${iz}`);
+  }
+
+  /* -------------------- Movement collision (step-up) -------------------- */
+  function canMoveTo(targetX, targetZ, feetY) {
+    // approximate collision using nearby block tops and circle collision
+    // return { allowed: bool, newFeetY: number }
+    const r = playerRadius + 0.05;
+    const minX = Math.floor(targetX - r);
+    const maxX = Math.floor(targetX + r);
+    const minZ = Math.floor(targetZ - r);
+    const maxZ = Math.floor(targetZ + r);
+    let candidateFeetY = feetY;
+
+    for (let ix = minX; ix <= maxX; ix++) {
+      for (let iz = minZ; iz <= maxZ; iz++) {
+        if (ix < 0 || ix >= SIZE || iz < 0 || iz >= SIZE) continue;
+        // skip cells outside island circle
+        const cx = ix - (SIZE / 2 - 0.5);
+        const cz = iz - (SIZE / 2 - 0.5);
+        if (Math.sqrt(cx*cx + cz*cz) > ISLAND_RADIUS) continue;
+
+        const top = highestBlockTopAt(ix, iz); // top surface y
+        if (top === 0) continue;
+        // distance in XZ from player's center to cell center
+        const cellCenterX = ix + 0.5;
+        const cellCenterZ = iz + 0.5;
+        const dx = targetX - cellCenterX;
+        const dz = targetZ - cellCenterZ;
+        const distSq = dx*dx + dz*dz;
+        const minDist = r + Math.SQRT1_2 * 1; // sqrt(0.5^2+0.5^2) ~ cell inscribed
+        // Better: check circle vs square (cell)
+        const closestX = Math.max(ix, Math.min(targetX, ix+1));
+        const closestZ = Math.max(iz, Math.min(targetZ, iz+1));
+        const ddx = targetX - closestX;
+        const ddz = targetZ - closestZ;
+        const d2 = ddx*ddx + ddz*ddz;
+        if (d2 < (r * r)) {
+          // we'd intersect horizontally; check vertical relationship
+          if (top > feetY + stepHeight) {
+            // block too high to step onto
+            return { allowed: false, newFeetY: feetY };
+          } else {
+            // can step up onto this block; candidate feetY becomes max
+            if (top > candidateFeetY) candidateFeetY = top;
+          }
+        }
+      }
+    }
+    // allowed; candidateFeetY is possibly raised to step onto blocks
+    return { allowed: true, newFeetY: candidateFeetY };
+  }
+
+  /* -------------------- Camera setup -------------------- */
+  function updateCameraToPlayer() {
+    const headPos = new THREE.Vector3(player.position.x, player.position.y + headHeight, player.position.z);
+    camera.position.copy(headPos);
+    const quat = new THREE.Quaternion().setFromEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ'));
+    camera.quaternion.copy(quat);
+  }
+
+  /* -------------------- Interaction helpers -------------------- */
   function screenToPointDirection(clientX, clientY) {
     if (document.pointerLockElement === canvas) {
-      // origin at camera, direction = camera forward
       const origin = camera.position.clone();
       const dir = new THREE.Vector3();
       camera.getWorldDirection(dir);
@@ -128,6 +204,22 @@
     const cx = ix - (SIZE / 2 - 0.5);
     const cz = iz - (SIZE / 2 - 0.5);
     if (Math.sqrt(cx * cx + cz * cz) > ISLAND_RADIUS) return false;
+    // don't allow placing inside player's body: check if cell intersects player's capsule
+    const px = player.position.x, pz = player.position.z, feetY = player.position.y;
+    const playerTop = feetY + playerHeight;
+    // if the block's vertical span intersects player's body range, and xz distance < radius+0.5 block -> disallow
+    const blockMinY = iy;
+    const blockMaxY = iy + 1;
+    if (!(blockMaxY <= feetY || blockMinY >= playerTop)) {
+      // potential vertical overlap
+      const closestX = Math.max(ix, Math.min(px, ix + 1));
+      const closestZ = Math.max(iz, Math.min(pz, iz + 1));
+      const dx = px - closestX;
+      const dz = pz - closestZ;
+      const d2 = dx*dx + dz*dz;
+      if (d2 < (playerRadius * playerRadius)) return false;
+    }
+
     const key = `${ix},${iy},${iz}`;
     if (blocks.has(key)) return false;
     const mesh = new THREE.Mesh(blockGeo, woodMat.clone());
@@ -147,25 +239,21 @@
     return true;
   }
 
-  // UI updates
+  /* -------------------- UI updates -------------------- */
   const statsEl = document.getElementById('stats');
   function updateStats() {
-    statsEl.innerText = `Bloques: ${blocks.size}\nPosición: ${player.position.x.toFixed(1)}, ${player.position.y.toFixed(1)}, ${player.position.z.toFixed(1)}\nYaw: ${yaw.toFixed(2)} Pitch: ${pitch.toFixed(2)}`;
+    statsEl.innerText = `Bloques: ${blocks.size}\nPosición: ${player.position.x.toFixed(2)}, ${player.position.y.toFixed(2)}, ${player.position.z.toFixed(2)}\nYaw: ${yaw.toFixed(2)} Pitch: ${pitch.toFixed(2)}`;
   }
 
-  /* -------------------- Desktop input: pointer lock + keyboard -------------------- */
-  // toggle pointer lock on click
+  /* -------------------- Desktop input (pointer lock + keyboard) -------------------- */
   canvas.addEventListener('click', () => {
-    if (isTouchDevice) return; // mobile uses touch
+    if (isTouchDevice) return;
     if (document.pointerLockElement !== canvas) {
       canvas.requestPointerLock?.();
     }
   });
-  document.addEventListener('pointerlockchange', () => {
-    // no-op for now; mousemove handler checks pointerLock
-  });
+  document.addEventListener('pointerlockchange', () => { /* no-op; mousemove checks pointer lock */ });
 
-  // keyboard controls
   window.addEventListener('keydown', (e) => {
     if (e.code === 'Space') { e.preventDefault(); tryJump(); return; }
     if (e.key === 'w' || e.key === 'W') keys.w = true;
@@ -180,7 +268,6 @@
     if (e.key === 'd' || e.key === 'D') keys.d = false;
   });
 
-  // mouse look (desktop)
   function onMouseMove(e) {
     if (document.pointerLockElement !== canvas) return;
     yaw -= e.movementX * sensitivityMouse;
@@ -189,14 +276,13 @@
   }
   document.addEventListener('mousemove', onMouseMove);
 
-  // mouse click interactions: place/remove
   renderer.domElement.addEventListener('pointerdown', (ev) => {
     ev.preventDefault();
-    // left = 0 place, right = 2 remove
     const pt = screenToPointDirection(ev.clientX, ev.clientY);
     if (!pt) return;
     const gx = snapCoord(pt.x);
     const gz = snapCoord(pt.z);
+
     if (ev.button === 0) {
       // place on lowest free layer
       let y = 0;
@@ -215,7 +301,7 @@
   });
   renderer.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
 
-  /* -------------------- Mobile detection + UI -------------------- */
+  /* -------------------- Mobile detection + controls (joystick + touch look) -------------------- */
   const isTouchDevice = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
   const touchControls = document.getElementById('touch-controls');
   const joyBase = document.getElementById('joy-base');
@@ -227,56 +313,43 @@
 
   if (isTouchDevice) {
     touchControls.classList.remove('hidden');
-    // hide crosshair on mobile
     document.getElementById('crosshair').style.display = 'none';
     hintEl.innerText = 'Touch: joystick izquierdo para mover; arrastra mitad derecha para mirar; botones a la derecha: salto (⤒), colocar (✚), borrar (−).';
   } else {
-    // hide mobile controls if not touch
     touchControls.classList.add('hidden');
   }
 
-  /* -------------------- Touch joystick (left side) -------------------- */
+  /* -------------------- Joystick implementation -------------------- */
   let joyActive = false;
   let joyId = null;
   let joyStart = { x: 0, y: 0 };
-  let joyPos = { x: 0, y: 0 };
-  const JOY_RADIUS = 56; // knob movement radius in px
+  const JOY_RADIUS = 56;
 
-  function joySetKnob(px, py) {
-    joyKnob.style.transform = `translate(${px}px, ${py}px)`;
-  }
-  function joyReset() {
-    joyActive = false; joyId = null; joyStart = { x: 0, y: 0 }; joyPos = { x: 0, y: 0 };
-    joySetKnob(0, 0);
-    input.forward = 0; input.right = 0;
-  }
+  function joySetKnob(px, py) { joyKnob.style.transform = `translate(${px}px, ${py}px)`; }
+  function joyReset() { joyActive = false; joyId = null; input.forward = 0; input.right = 0; joySetKnob(0,0); }
 
   joyBase.addEventListener('touchstart', (e) => {
     e.preventDefault();
     const t = e.changedTouches[0];
     joyActive = true; joyId = t.identifier;
     const rect = joyBase.getBoundingClientRect();
-    // center knob relative to base center
     joyStart.x = rect.left + rect.width / 2;
     joyStart.y = rect.top + rect.height / 2;
-    joyPos = { x: 0, y: 0 };
-    joySetKnob(0, 0);
+    joySetKnob(0,0);
   }, { passive: false });
 
   joyBase.addEventListener('touchmove', (e) => {
     if (!joyActive) return;
-    for (let i = 0; i < e.changedTouches.length; i++) {
+    for (let i=0;i<e.changedTouches.length;i++) {
       const t = e.changedTouches[i];
       if (t.identifier !== joyId) continue;
       const dx = t.clientX - joyStart.x;
       const dy = t.clientY - joyStart.y;
-      // clamp to JOY_RADIUS
       const dist = Math.hypot(dx, dy);
       const clamped = dist > JOY_RADIUS ? JOY_RADIUS / dist : 1;
       const nx = dx * clamped;
       const ny = dy * clamped;
       joySetKnob(nx, ny);
-      // map to input: forward = -ny, right = nx
       input.forward = -ny / JOY_RADIUS;
       input.right = nx / JOY_RADIUS;
     }
@@ -284,11 +357,9 @@
   }, { passive: false });
 
   joyBase.addEventListener('touchend', (e) => {
-    for (let i = 0; i < e.changedTouches.length; i++) {
+    for (let i=0;i<e.changedTouches.length;i++) {
       const t = e.changedTouches[i];
-      if (t.identifier === joyId) {
-        joyReset();
-      }
+      if (t.identifier === joyId) joyReset();
     }
     e.preventDefault();
   }, { passive: false });
@@ -296,88 +367,66 @@
   /* -------------------- Touch look (right half) -------------------- */
   let lookId = null;
   let lastTouch = null;
-  function onTouchStartLook(t) {
-    lookId = t.identifier;
-    lastTouch = { x: t.clientX, y: t.clientY };
-  }
+  function onTouchStartLook(t) { lookId = t.identifier; lastTouch = { x: t.clientX, y: t.clientY }; }
   function onTouchMoveLook(t) {
     if (lookId !== t.identifier || !lastTouch) return;
     const dx = t.clientX - lastTouch.x;
     const dy = t.clientY - lastTouch.y;
-    // sensitivity tuned for touch
     yaw -= dx * sensitivityTouch;
     pitch -= dy * sensitivityTouch;
     pitch = Math.max(-pitchLimit, Math.min(pitchLimit, pitch));
     lastTouch = { x: t.clientX, y: t.clientY };
   }
-  function onTouchEndLook(t) {
-    if (lookId === t.identifier) { lookId = null; lastTouch = null; }
-  }
+  function onTouchEndLook(t) { if (lookId === t.identifier) { lookId = null; lastTouch = null; } }
 
-  // global touch listeners: decide which touch is for look vs joystick by position
   window.addEventListener('touchstart', (e) => {
-    for (let i = 0; i < e.changedTouches.length; i++) {
+    for (let i=0;i<e.changedTouches.length;i++) {
       const t = e.changedTouches[i];
-      // if started on left joystick, it's handled there; otherwise if x > 40% of width -> look
-      if (t.clientX > window.innerWidth * 0.4) {
-        onTouchStartLook(t);
-      }
+      if (t.clientX > window.innerWidth * 0.4) onTouchStartLook(t);
     }
   }, { passive: false });
 
   window.addEventListener('touchmove', (e) => {
-    for (let i = 0; i < e.changedTouches.length; i++) {
+    for (let i=0;i<e.changedTouches.length;i++) {
       const t = e.changedTouches[i];
-      if (t.clientX > window.innerWidth * 0.4) {
-        onTouchMoveLook(t);
-      }
+      if (t.clientX > window.innerWidth * 0.4) onTouchMoveLook(t);
     }
   }, { passive: false });
 
   window.addEventListener('touchend', (e) => {
-    for (let i = 0; i < e.changedTouches.length; i++) {
+    for (let i=0;i<e.changedTouches.length;i++) {
       const t = e.changedTouches[i];
       if (t.clientX > window.innerWidth * 0.4) onTouchEndLook(t);
     }
   }, { passive: false });
 
-  /* -------------------- Mobile buttons: jump / place / remove -------------------- */
+  /* -------------------- Mobile buttons -------------------- */
   btnJump.addEventListener('touchstart', (e) => { e.preventDefault(); tryJump(); }, { passive: false });
   btnPlace.addEventListener('touchstart', (e) => { e.preventDefault(); mobilePlace(); }, { passive: false });
   btnRemove.addEventListener('touchstart', (e) => { e.preventDefault(); mobileRemove(); }, { passive: false });
 
-  // mobile place/remove use center ray from camera
   function mobilePlace() {
     const origin = camera.position.clone();
-    const dir = new THREE.Vector3();
-    camera.getWorldDirection(dir);
+    const dir = new THREE.Vector3(); camera.getWorldDirection(dir);
     raycaster.set(origin, dir);
     const intersects = raycaster.intersectObjects([ground, mask], false);
     if (intersects.length === 0) return;
     const pt = intersects[0].point;
-    const gx = snapCoord(pt.x);
-    const gz = snapCoord(pt.z);
+    const gx = snapCoord(pt.x), gz = snapCoord(pt.z);
     let y = 0;
-    while (y < 64) {
-      const key = `${gx},${y},${gz}`;
-      if (!blocks.has(key)) break;
-      y++;
-    }
+    while (y < 64) { if (!blocks.has(`${gx},${y},${gz}`)) break; y++; }
     if (y < 64) { placeBlockAt(gx, y, gz); updateStats(); }
   }
   function mobileRemove() {
     const origin = camera.position.clone();
-    const dir = new THREE.Vector3();
-    camera.getWorldDirection(dir);
+    const dir = new THREE.Vector3(); camera.getWorldDirection(dir);
     raycaster.set(origin, dir);
     const intersects = raycaster.intersectObjects([ground, mask], false);
     if (intersects.length === 0) return;
     const pt = intersects[0].point;
-    const gx = snapCoord(pt.x);
-    const gz = snapCoord(pt.z);
+    const gx = snapCoord(pt.x), gz = snapCoord(pt.z);
     for (let y = 63; y >= 0; y--) {
-      const key = `${gx},${y},${gz}`;
-      if (blocks.has(key)) { removeBlockAt(gx, y, gz); updateStats(); break; }
+      if (blocks.has(`${gx},${y},${gz}`)) { removeBlockAt(gx,y,gz); updateStats(); break; }
     }
   }
 
@@ -396,63 +445,85 @@
     renderer.setSize(window.innerWidth, window.innerHeight);
   });
 
-  /* -------------------- Render loop & movement update -------------------- */
+  /* -------------------- Render loop & movement with collisions -------------------- */
   let last = performance.now();
   function animate(now) {
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
 
-    // compute movement input: keyboard (desktop) or joystick (mobile)
+    // input mapping (desktop keyboard -> input)
     if (!isTouchDevice) {
-      // keyboard -> input.forward/right in [-1,1]
-      const f = (keys.w ? -1 : 0) + (keys.s ? 1 : 0);
-      const r = (keys.d ? 1 : 0) + (keys.a ? -1 : 0);
-      input.forward = f;
-      input.right = r;
+      input.forward = (keys.w ? -1 : 0) + (keys.s ? 1 : 0);
+      input.right = (keys.d ? 1 : 0) + (keys.a ? -1 : 0);
     }
-    // Build movement vector relative to yaw
+
+    // build desired horizontal movement vector in world coords
     const forwardVec = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw)).normalize();
     const rightVec = new THREE.Vector3(Math.sin(yaw + Math.PI / 2), 0, Math.cos(yaw + Math.PI / 2)).normalize();
 
     let move = new THREE.Vector3();
     move.addScaledVector(forwardVec, input.forward);
     move.addScaledVector(rightVec, input.right);
-    if (move.lengthSq() > 0) {
-      move.normalize();
-      player.position.addScaledVector(move, speed * dt);
+    if (move.lengthSq() > 0) move.normalize();
+
+    // attempt horizontal movement with collision / step-up
+    const desiredX = player.position.x + move.x * walkSpeed * dt;
+    const desiredZ = player.position.z + move.z * walkSpeed * dt;
+    const feetYBefore = player.position.y;
+    const canMove = canMoveTo(desiredX, desiredZ, feetYBefore);
+    if (canMove.allowed) {
+      // apply step-up if needed
+      player.position.x = desiredX;
+      player.position.z = desiredZ;
+      if (canMove.newFeetY > player.position.y) {
+        // step up smoothly
+        player.position.y = canMove.newFeetY;
+        velY = 0;
+        canJump = true;
+      }
+    } else {
+      // movement blocked: optionally try sliding along axis X or Z (basic)
+      const tryX = canMoveTo(player.position.x + move.x * walkSpeed * dt, player.position.z, player.position.y);
+      const tryZ = canMoveTo(player.position.x, player.position.z + move.z * walkSpeed * dt, player.position.y);
+      if (tryX.allowed) { player.position.x += move.x * walkSpeed * dt; if (tryX.newFeetY > player.position.y){ player.position.y = tryX.newFeetY; velY = 0; canJump = true; } }
+      else if (tryZ.allowed) { player.position.z += move.z * walkSpeed * dt; if (tryZ.newFeetY > player.position.y){ player.position.y = tryZ.newFeetY; velY = 0; canJump = true; } }
+      // else fully blocked
     }
 
-    // clamp inside island (keep margin 1)
-    let cx = player.position.x - (SIZE / 2 - 0.5);
-    let cz = player.position.z - (SIZE / 2 - 0.5);
-    let dist = Math.sqrt(cx * cx + cz * cz);
-    if (dist > ISLAND_RADIUS - 1) {
-      const nx = cx / dist; const nz = cz / dist;
-      player.position.x = (SIZE / 2 - 0.5) + nx * (ISLAND_RADIUS - 1);
-      player.position.z = (SIZE / 2 - 0.5) + nz * (ISLAND_RADIUS - 1);
-    }
-
-    // vertical physics
+    // apply gravity
     velY += GRAVITY * dt;
     player.position.y += velY * dt;
 
-    // simple ground collision: ground plane at y = playerRadius (we do not support standing on blocks for now)
-    const groundY = playerRadius;
-    if (player.position.y <= groundY) {
-      player.position.y = groundY;
+    // compute ground under player (highest block under player's grid cell)
+    const cellX = Math.floor(player.position.x);
+    const cellZ = Math.floor(player.position.z);
+    let groundTop = 0;
+    if (cellX >= 0 && cellX < SIZE && cellZ >= 0 && cellZ < SIZE) groundTop = highestBlockTopAt(cellX, cellZ);
+    // ensure groundTop at least base plane 0
+    groundTop = Math.max(groundTop, 0);
+
+    // collision with ground surface (including blocks)
+    const feetY = player.position.y;
+    if (feetY <= groundTop + 0.001) {
+      player.position.y = groundTop;
       velY = 0;
       canJump = true;
     } else {
       canJump = false;
     }
 
-    // update camera to player head + apply yaw/pitch
-    const headPos = new THREE.Vector3(player.position.x, player.position.y + HEAD_HEIGHT, player.position.z);
-    // set camera position (no smoothing for instant FP feel)
-    camera.position.copy(headPos);
+    // keep player inside island radius (push back)
+    const cx = player.position.x - (SIZE / 2 - 0.5);
+    const cz = player.position.z - (SIZE / 2 - 0.5);
+    const dist = Math.sqrt(cx*cx + cz*cz);
+    if (dist > ISLAND_RADIUS - 0.5) {
+      const nx = cx / dist; const nz = cz / dist;
+      player.position.x = (SIZE / 2 - 0.5) + nx * (ISLAND_RADIUS - 0.5);
+      player.position.z = (SIZE / 2 - 0.5) + nz * (ISLAND_RADIUS - 0.5);
+    }
 
-    const quat = new THREE.Quaternion().setFromEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ'));
-    camera.quaternion.copy(quat);
+    // update camera
+    updateCameraToPlayer();
 
     // render
     renderer.render(scene, camera);
@@ -460,25 +531,23 @@
     requestAnimationFrame(animate);
   }
 
-  // initial decorative blocks in center
-  const centerX = Math.floor(SIZE / 2);
-  const centerZ = Math.floor(SIZE / 2);
-  placeBlockAt(centerX, 1, centerZ);
-  placeBlockAt(centerX + 1, 1, centerZ);
-  placeBlockAt(centerX - 1, 1, centerZ);
+  // initial spawn: set feet to groundTop for spawn cell
+  const spawnX = Math.floor(SIZE / 2), spawnZ = Math.floor(SIZE / 2);
+  player.position.x = spawnX + 0.0;
+  player.position.z = spawnZ + 0.0;
+  player.position.y = Math.max(0, highestBlockTopAt(spawnX, spawnZ));
+
+  // place a few decorative blocks to test stepping
+  placeBlockAt(spawnX, 1, spawnZ);
+  placeBlockAt(spawnX+1, 1, spawnZ);
+  placeBlockAt(spawnX+2, 1, spawnZ);
   updateStats();
 
-  animate(last);
+  animate(performance.now());
 
-  /* -------------------- Extra: optional toggle to show body (third-person) -------------------- */
-  // you can expose a function to toggle bodyMesh.visibility if desired:
+  /* -------------------- Optional: expose toggle for third person view -------------------- */
   window.toggleThirdPerson = function(show) {
     bodyMesh.visible = !!show;
   };
 
-  /* -------------------- Notes & tweaks -------------------- */
-  // - Jump strength, gravity and speeds can be tuned at top constants.
-  // - We intentionally use simple ground collision (no per-block stepping) for simplicity.
-  // - If you later want to stand on blocks, add a block-collision check to compute groundY
-  //   as the highest block under the player's x,z grid position.
 })();
