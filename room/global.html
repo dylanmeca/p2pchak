@@ -2,20 +2,34 @@
 <html lang="es">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Isla Flotante 256×256 — Primera Persona</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Isla Flotante 256×256 — FP + Salto + Móvil</title>
   <link rel="stylesheet" href="global.css">
 </head>
 <body>
   <div id="ui">
     <h1>Isla Flotante 256×256</h1>
-    <p>Click en el lienzo para tomar el puntero y entrar en primera persona.<br>
-       WASD: mover • Mouse: mirar • Click izquierdo: colocar bloque (madera) • Click derecho: borrar.</p>
+    <p id="hint">Click en el lienzo para tomar el puntero (escritorio). En móvil: joystick izquierdo, arrastra la mitad derecha para mirar.</p>
     <div id="stats"></div>
   </div>
 
+  <!-- Crosshair (desktop) -->
   <div id="crosshair">+</div>
+
+  <!-- Canvas -->
   <canvas id="c"></canvas>
+
+  <!-- Mobile controls -->
+  <div id="touch-controls" class="hidden">
+    <div id="joy-base">
+      <div id="joy-knob"></div>
+    </div>
+    <div id="buttons">
+      <button id="btn-jump" class="touch-btn">⤒</button>
+      <button id="btn-place" class="touch-btn">✚</button>
+      <button id="btn-remove" class="touch-btn">−</button>
+    </div>
+  </div>
 
   <!-- Three.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/three@0.152.0/build/three.min.js"></script>
