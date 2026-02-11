@@ -2,7 +2,7 @@
   "name": "p2pchak",
   "short_name": "p2pchak",
   "description": "p2pchak es un servicio de comunicación privada que utiliza la tecnología P2P, ofreciendo chats temporales en línea sin necesidad de registro.",
-  "start_url": "/",
+  "start_url": "/room",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
