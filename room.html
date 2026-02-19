@@ -3,50 +3,49 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>p2pchak - Chat Online</title>
-  <meta name="description" content="Chatea gratis en nuestro chat p2p.">
+  <title>p2pchak - Chat P2P Online sin registro</title>
+  <meta name="description" content="p2pchak es un servicio de comunicación privada que utiliza la tecnología P2P, ofreciendo chats temporales en línea sin necesidad de registro.">
   <meta name="author" content="Dylan Meca">
   <meta name="google-site-verification" content="lBg4RSX2hnEcxA7fWW46cux1hJYk1zvuvF55FjpzZYk" />
   <meta name="msvalidate.01" content="4934D978F9E22D0A0239EA507C20F2CF" />
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
-  <link rel="manifest" href="/room/manifest.json">
   <meta name="theme-color" content="#001224">
   <!-- Apple -->
-  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <link rel="apple-touch-icon" href="/assets/icons/icon-192.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
   <!-- Open Graph -->
   <meta property="og:type" content="website">
   <meta property="og:locale" content="es_ES">
-  <meta property="og:site_name" content="p2pchak - chat 1 a 1">
+  <meta property="og:site_name" content="p2pchak - Chat P2P Online sin registro">
   <meta property="og:title" content="p2pchak">
-  <meta property="og:url" content="https://p2pchak.vercel.app/room/">
-  <meta property="og:description" content="Chatea gratis en nuestro chat p2p.">
+  <meta property="og:url" content="https://p2pchak.vercel.app/room">
+  <meta property="og:description" content="p2pchak es un servicio de comunicación privada que utiliza la tecnología P2P, ofreciendo chats temporales en línea sin necesidad de registro.">
 
   <!-- Twitter -->
   <meta name="twitter:site" content="@meca_dylan">
-  <meta name="twitter:title" content="p2pchak - chat 1 a 1">
-  <meta name="twitter:description" content="Chatea gratis en nuestro chat p2p.">
-  <meta name="twitter:url" content="https://p2pchak.vercel.app/room/">
+  <meta name="twitter:title" content="p2pchak - Chat P2P Online sin registro">
+  <meta name="twitter:description" content="p2pchak es un servicio de comunicación privada que utiliza la tecnología P2P, ofreciendo chats temporales en línea sin necesidad de registro.">
+  <meta name="twitter:url" content="https://p2pchak.vercel.app/room">
   <meta name="twitter:card" content="summary">
 
-  <link rel="canonical" href="https://p2pchak.vercel.app/room/">
+  <link rel="canonical" href="https://p2pchak.vercel.app/room">
 
   <!-- Structured data -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "WebSite",
-    "name": "p2pchak - chat 1 a 1",
-    "url": "https://p2pchak.vercel.app/room/",
-    "description": "Chatea gratis en nuestro chat p2p."
+    "name": "p2pchak - Chat P2P Online sin registro",
+    "url": "https://p2pchak.vercel.app/room",
+    "description": "p2pchak es un servicio de comunicación privada que utiliza la tecnología P2P, ofreciendo chats temporales en línea sin necesidad de registro."
   }
   </script>
 
   <!-- Favicons (ico + png) -->
   <link rel="icon" href="/favicon.ico" type="image/x-icon">
-  <link rel="icon" href="/icons/favicon.png" type="image/png">
+  <link rel="icon" href="/assets/icons/favicon.png" type="image/png">
 
   <!-- Minimal inline CSS para el encabezado (título + favicon visible y del mismo tamaño) -->
   <style>
@@ -89,7 +88,7 @@
     .top .meta-row{ margin-top:8px; display:flex; gap:8px; align-items:center; justify-content:center; flex-wrap:wrap; }
   </style>
 
-  <link rel="stylesheet" href="/room/estilos.css">
+  <link rel="stylesheet" href="/assets/css/room.css">
   <!-- PeerJS CDN -->
   <script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js" defer></script>
 </head>
@@ -101,7 +100,7 @@
         <h1 class="site-title"><a href="/">p2pchak</a></h1>
 
         <!-- favicon.png mostrado a la derecha del título y escalado al mismo tamaño -->
-        <img src="/icons/favicon.png" alt="p2pchak logo" class="site-favicon" aria-hidden="false" />
+        <img src="/assets/icons/favicon.png" alt="p2pchak logo" class="site-favicon" aria-hidden="false" />
       </div><br />
 
       <hr class="divider" />
@@ -198,20 +197,7 @@
   </script>
 
   <!-- lógica del chat -->
-  <script src="/room/chat.js" defer></script>
-
-  <script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/room/sw.js')
-        .then(reg => {
-          console.log('Service Worker registrado:', reg);
-        }).catch(err => {
-          console.warn('Service Worker fallo:', err);
-        });
-    });
-  }
-  </script>
+  <script src="/assets/js/chat.js" defer></script>
 
 </body>
 </html>
