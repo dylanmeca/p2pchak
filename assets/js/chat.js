@@ -3,7 +3,7 @@
    - ID propio: 5 caracteres (MAYÚSCULAS y dígitos) con reintentos si está en uso
    - PeerJS P2P (connect, accept, close, error)
    - ack / read / sync (receipts)
-   - historial por par en localStorage
+   - historial por par en sessionStorage
    - archivos: dataURL y transferencia por chunks
    - file-card: archivos como tarjetas (no burbujas) con nombre como link descargable/viewable
    - animaciones: typing wave; incoming typewriter; outgoing streaming
@@ -50,7 +50,7 @@ function genMessageId() {
 function loadHistory(peerId) {
   const key = HISTORY_PREFIX + (peerId || 'local');
   try {
-    const raw = localStorage.getItem(key);
+    const raw = sessionStorage.getItem(key);
     messageHistory = raw ? JSON.parse(raw) : [];
   } catch (e) {
     messageHistory = [];
@@ -58,7 +58,7 @@ function loadHistory(peerId) {
 }
 function saveHistory(peerId) {
   const key = HISTORY_PREFIX + (peerId || 'local');
-  try { localStorage.setItem(key, JSON.stringify(messageHistory)); } catch (e) { /* ignore */ }
+  try { sessionStorage.setItem(key, JSON.stringify(messageHistory)); } catch (e) { /* ignore */ }
 }
 
 /* ---------------------------- UI helpers ---------------------------- */
@@ -649,3 +649,4 @@ window.addEventListener('beforeunload', () => { try { if (peer) peer.destroy(); 
 initPeer();
 
 /* ---------------------------- End of chat.js ---------------------------- */
+
