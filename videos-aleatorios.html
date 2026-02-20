@@ -421,8 +421,6 @@
   // Categorías priorizadas (estilo "feed educativo")
   // Basado en tags/categorías de Odysee: /$/education, /$/lifestyle, /$/tech, /$/finance
   const CATEGORY_TAGS = ["education","lifestyle","tech","finance"];
-  const ONLY_LANGUAGE_PREFIX = "es"; // solo contenido marcado como español
-
 
 
   const PAGE_SIZE = 18;
@@ -557,24 +555,6 @@
     img.referrerPolicy = "no-referrer";
     img.src = url;
   }
-  function getClaimLanguage(it){
-    const v = it?.value || {};
-    const direct =
-      (typeof v.language === "string" && v.language) ||
-      (Array.isArray(v.languages) && v.languages.length ? v.languages[0] : "") ||
-      (v.stream && (
-        (typeof v.stream.language === "string" && v.stream.language) ||
-        (Array.isArray(v.stream.languages) && v.stream.languages.length ? v.stream.languages[0] : "")
-      )) ||
-      "";
-    return String(direct).trim().toLowerCase();
-  }
-
-  function isSpanish(it){
-    const lang = getClaimLanguage(it);
-    return !!lang && (lang === ONLY_LANGUAGE_PREFIX || lang.startsWith(ONLY_LANGUAGE_PREFIX + "-"));
-  }
-
 
   async function claimSearchByPage(page, count){
     const body = {
@@ -653,7 +633,7 @@
         merged.push(...items);
       }
 
-      merged = merged.filter(it => isSpanish(it) && it?.claim_id && !seen.has(it.claim_id));
+      merged = merged.filter(it => it?.claim_id && !seen.has(it.claim_id));
       for (const it of merged) seen.add(it.claim_id);
 
       shuffle(merged);
@@ -868,14 +848,10 @@
           const items = await claimSearchById(sharedId);
           const shared = items && items[0];
           if (shared){
-            if (!isSpanish(shared)){
-              toast("El video compartido no está marcado como español; cargando feed aleatorio…", 2500);
-            } else {
-              setPageTitleForVideo(shared?.value?.title || shared?.name);
-              if (shared.claim_id) seen.add(shared.claim_id);
-              feed.appendChild(createCard(shared));
-              skeleton?.remove();
-            }
+            setPageTitleForVideo(shared?.value?.title || shared?.name);
+            if (shared.claim_id) seen.add(shared.claim_id);
+            feed.appendChild(createCard(shared));
+            skeleton?.remove();
           } else {
             toast("No se encontró el video compartido; cargando feed aleatorio…", 2500);
           }
