@@ -5,7 +5,7 @@ sub_description: "🟢 Conéctate directamente con tus conocidos, comparte archi
 lang: "es"
 repository: dylanmeca/p2pchak
 show_downloads: false
-google_analytics:
+google_analytics: "G-4YGRYWWSPT"
 google_site_verification : "lBg4RSX2hnEcxA7fWW46cux1hJYk1zvuvF55FjpzZYk"
 bing_site_verification : "4934D978F9E22D0A0239EA507C20F2CF"
 url: "https://p2pchak.vercel.app"
