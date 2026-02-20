@@ -511,6 +511,26 @@
     return `${base}?id=${encodeURIComponent(claimId)}`;
   }
 
+  function ensureMeta(attrName, attrValue){
+    let meta = document.querySelector(`meta[${attrName}="${attrValue}"]`);
+    if (!meta){
+      meta = document.createElement("meta");
+      meta.setAttribute(attrName, attrValue);
+      document.head.appendChild(meta);
+    }
+    return meta;
+  }
+
+  // If the page is opened with ?id=..., set the document title to the video's title
+  // so the shared link shows a meaningful tab title (and helps social previews if used).
+  function setPageTitleForVideo(videoTitle){
+    if (!videoTitle) return;
+    document.title = videoTitle;
+    ensureMeta("property", "og:title").setAttribute("content", videoTitle);
+    ensureMeta("name", "twitter:title").setAttribute("content", videoTitle);
+  }
+
+
   function prefetchEmbed(url){
     if (!url || prefetchedEmbeds.has(url)) return;
     prefetchedEmbeds.add(url);
@@ -686,7 +706,7 @@
     const title = card.querySelector(".videoTitle")?.textContent || "Video";
     try{
       if (navigator.share){
-        await navigator.share({ title, text: "Mira este video ", url });
+        await navigator.share({ title, text: "Mira este video en Odysee", url });
         toast("Compartido");
       } else if (navigator.clipboard?.writeText){
         await navigator.clipboard.writeText(url);
@@ -823,6 +843,7 @@
           const items = await claimSearchById(sharedId);
           const shared = items && items[0];
           if (shared){
+            setPageTitleForVideo(shared?.value?.title || shared?.name);
             if (shared.claim_id) seen.add(shared.claim_id);
             feed.appendChild(createCard(shared));
             skeleton?.remove();
