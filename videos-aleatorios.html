@@ -418,6 +418,10 @@
 (() => {
   const API = "https://api.na-backend.odysee.com/api/v1/proxy";
   const NOT_TAGS = ["porn","nsfw","mature","xxx"];
+  // Categorías priorizadas (estilo "feed educativo")
+  // Basado en tags/categorías de Odysee: /$/education, /$/lifestyle, /$/tech, /$/finance
+  const CATEGORY_TAGS = ["education","lifestyle","tech","finance"];
+
 
   const PAGE_SIZE = 18;
   const PREFETCH_WHEN_LEFT = 7;
@@ -564,6 +568,7 @@
         stream_types: ["video"],
         not_tags: NOT_TAGS,
         has_source: true,
+        any_tags: CATEGORY_TAGS,
         order_by: ["release_time"]
       }
     };
