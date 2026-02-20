@@ -420,7 +420,7 @@
   const NOT_TAGS = ["porn","nsfw","mature","xxx"];
   // Categorías priorizadas (estilo "feed educativo")
   // Basado en tags/categorías de Odysee: /$/education, /$/lifestyle, /$/tech, /$/finance
-  const CATEGORY_TAGS = ["education","lifestyle","tech","finance"];
+  const CATEGORY_TAGS = ["education","lifestyle","tech","finance", "ciberseguridad"];
 
 
   const PAGE_SIZE = 18;
@@ -711,7 +711,7 @@
     const title = card.querySelector(".videoTitle")?.textContent || "Video";
     try{
       if (navigator.share){
-        await navigator.share({ title, text: "Mira este video en Odysee", url });
+        await navigator.share({ title, text: "Mira este video:", url });
         toast("Compartido");
       } else if (navigator.clipboard?.writeText){
         await navigator.clipboard.writeText(url);
