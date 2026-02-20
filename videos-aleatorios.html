@@ -503,6 +503,14 @@
     return `https://odysee.com/${encodeURIComponent(name)}/${claimId}`;
   }
 
+  // Share URL that opens this same page and loads the shared video by claim_id.
+  function shareLink(claimId){
+    const base = (location.origin && location.origin !== "null")
+      ? `${location.origin}${location.pathname}`
+      : location.href.split("?")[0];
+    return `${base}?id=${encodeURIComponent(claimId)}`;
+  }
+
   function prefetchEmbed(url){
     if (!url || prefetchedEmbeds.has(url)) return;
     prefetchedEmbeds.add(url);
@@ -555,6 +563,34 @@
       totalPages = result.total_pages;
       if (changed) seedPagePool();
     }
+    return (result.items || []);
+  }
+
+  async function claimSearchById(claimId){
+    const body = {
+      jsonrpc: "2.0",
+      id: Date.now(),
+      method: "claim_search",
+      params: {
+        claim_ids: [claimId],
+        page_size: 1,
+        claim_type: "stream",
+        stream_types: ["video"],
+        not_tags: NOT_TAGS,
+        has_source: true,
+        no_totals: true
+      }
+    };
+
+    const res = await fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    const data = await res.json();
+    const result = data?.result || {};
     return (result.items || []);
   }
 
@@ -646,7 +682,7 @@
   async function doShare(card){
     const name = card.dataset.name;
     const claimId = card.dataset.claimId;
-    const url = openLink(name, claimId);
+    const url = shareLink(claimId);
     const title = card.querySelector(".videoTitle")?.textContent || "Video";
     try{
       if (navigator.share){
@@ -780,6 +816,25 @@
 
   (async () => {
     try{
+      const sharedId = new URLSearchParams(location.search).get("id");
+      if (sharedId){
+        toast("Cargando video compartido…");
+        try{
+          const items = await claimSearchById(sharedId);
+          const shared = items && items[0];
+          if (shared){
+            if (shared.claim_id) seen.add(shared.claim_id);
+            feed.appendChild(createCard(shared));
+            skeleton?.remove();
+          } else {
+            toast("No se encontró el video compartido; cargando feed aleatorio…", 2500);
+          }
+        } catch (err){
+          console.warn("No se pudo cargar el video compartido:", err);
+          toast("No se pudo cargar el video compartido; cargando feed aleatorio…", 2500);
+        }
+      }
+
       toast("Cargando feed aleatorio neutral…");
       seedPagePool();
 
