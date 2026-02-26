@@ -35,6 +35,229 @@ let messageHistory = []; // {id, text, ts, me, status, meta}
 const HISTORY_PREFIX = 'p2pchat_history_';
 const CHUNK_SIZE = 512 * 1024; // 512KB
 
+/* ---------------------------- E2EE: AES-GCM 256 (end-to-end) ---------------------------- */
+/* Nota:
+   - El intercambio de clave usa ECDH (P-256) + HKDF(SHA-256) -> AES-GCM 256.
+   - Requiere HTTPS (window.isSecureContext) para WebCrypto.
+   - Sin verificación de identidad, un atacante activo podría hacer MITM; si quieres mitigar, compara un "código" (SAS) mostrado a ambos.
+*/
+const E2EE = {
+  enabled: true,
+  started: false,
+  ready: false,
+  localKeyPair: null,
+  localNonce: null,     // Uint8Array(32)
+  remotePubJwk: null,   // JWK
+  remoteNonce: null,    // Uint8Array(32)
+  aesKey: null,         // CryptoKey (AES-GCM 256)
+  sendQueue: [],        // objetos sin cifrar esperando llave
+  recvQueue: [],        // sobres E2EE esperando llave
+  sendChain: Promise.resolve() // para mantener el orden al enviar cifrado
+};
+
+const _te = new TextEncoder();
+const _td = new TextDecoder();
+
+function e2eeAvailable() {
+  return !!(window.crypto && crypto.subtle && window.isSecureContext);
+}
+
+function u8Concat(a, b) {
+  const out = new Uint8Array(a.length + b.length);
+  out.set(a, 0);
+  out.set(b, a.length);
+  return out;
+}
+
+function abToB64(buf) {
+  const bytes = buf instanceof ArrayBuffer ? new Uint8Array(buf) : new Uint8Array(buf.buffer || buf);
+  let binary = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
+function b64ToAb(b64) {
+  const binary = atob(String(b64 || ''));
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes.buffer;
+}
+
+async function e2eeReset() {
+  E2EE.started = false;
+  E2EE.ready = false;
+  E2EE.localKeyPair = null;
+  E2EE.localNonce = null;
+  E2EE.remotePubJwk = null;
+  E2EE.remoteNonce = null;
+  E2EE.aesKey = null;
+  E2EE.sendQueue = [];
+  E2EE.recvQueue = [];
+  E2EE.sendChain = Promise.resolve();
+}
+
+async function e2eeStartHandshake() {
+  if (!E2EE.enabled) return;
+  if (!e2eeAvailable()) {
+    if (E2EE.enabled) addSystem('⚠️ E2EE desactivado: WebCrypto requiere HTTPS (contexto seguro).');
+    E2EE.enabled = false;
+    return;
+  }
+  if (!conn || conn.open === false) return;
+  if (E2EE.started) return;
+
+  E2EE.started = true;
+  E2EE.ready = false;
+
+  try {
+    E2EE.localNonce = crypto.getRandomValues(new Uint8Array(32));
+    E2EE.localKeyPair = await crypto.subtle.generateKey(
+      { name: 'ECDH', namedCurve: 'P-256' },
+      true,
+      ['deriveBits']
+    );
+    const pub = await crypto.subtle.exportKey('jwk', E2EE.localKeyPair.publicKey);
+    // Enviamos el material público (sin cifrar) para poder derivar la clave simétrica.
+    conn.send({ type: 'kex1', pub, nonce: abToB64(E2EE.localNonce) });
+  } catch (e) {
+    console.error('E2EE handshake start failed', e);
+    addSystem('⚠️ No se pudo iniciar E2EE. Continuando sin cifrado.');
+    E2EE.enabled = false;
+  }
+}
+
+async function e2eeHandleKex1(msg) {
+  if (!E2EE.enabled) return;
+  if (!e2eeAvailable()) { E2EE.enabled = false; return; }
+
+  // Si el otro lado inicia primero, nos aseguramos de tener nuestras llaves/nonce y responder.
+  if (!E2EE.started) await e2eeStartHandshake();
+
+  try {
+    if (msg && msg.pub) E2EE.remotePubJwk = msg.pub;
+    if (msg && msg.nonce) E2EE.remoteNonce = new Uint8Array(b64ToAb(msg.nonce));
+    await e2eeMaybeFinalize();
+  } catch (e) {
+    console.error('E2EE handle kex1 failed', e);
+    addSystem('⚠️ Error en intercambio de claves E2EE. Continuando sin cifrado.');
+    E2EE.enabled = false;
+  }
+}
+
+async function e2eeMaybeFinalize() {
+  if (!E2EE.enabled) return;
+  if (E2EE.ready) return;
+  if (!E2EE.localKeyPair || !E2EE.remotePubJwk || !E2EE.localNonce || !E2EE.remoteNonce) return;
+
+  const remotePub = await crypto.subtle.importKey(
+    'jwk',
+    E2EE.remotePubJwk,
+    { name: 'ECDH', namedCurve: 'P-256' },
+    false,
+    []
+  );
+
+  // 1) ECDH -> secreto compartido
+  const sharedBits = await crypto.subtle.deriveBits(
+    { name: 'ECDH', public: remotePub },
+    E2EE.localKeyPair.privateKey,
+    256
+  );
+
+  // 2) HKDF(SHA-256) -> AES-GCM 256
+  const baseKey = await crypto.subtle.importKey('raw', sharedBits, 'HKDF', false, ['deriveKey']);
+
+  // Salt determinístico basado en ambos nonces (ordenado para que ambos lados obtengan lo mismo)
+  const n1 = abToB64(E2EE.localNonce);
+  const n2 = abToB64(E2EE.remoteNonce);
+  const salt = (n1 < n2) ? u8Concat(E2EE.localNonce, E2EE.remoteNonce) : u8Concat(E2EE.remoteNonce, E2EE.localNonce);
+
+  const info = _te.encode('p2pchat-e2ee-aesgcm-256-v1');
+  E2EE.aesKey = await crypto.subtle.deriveKey(
+    { name: 'HKDF', hash: 'SHA-256', salt, info },
+    baseKey,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt']
+  );
+
+  E2EE.ready = true;
+
+  // (Opcional) SAS de verificación manual contra MITM: 6 dígitos.
+  try {
+    const digest = await crypto.subtle.digest('SHA-256', sharedBits);
+    const d = new Uint8Array(digest);
+    const code = String(((d[0] << 16) | (d[1] << 8) | d[2]) % 1000000).padStart(6, '0');
+    addSystem('🔒 Cifrado activo. Código de verificación: ' + code);
+  } catch (_) {
+    addSystem('🔒 Cifrado activo.');
+  }
+
+  // Enviar lo que estaba en cola
+  const toSend = E2EE.sendQueue.splice(0, E2EE.sendQueue.length);
+  toSend.forEach(obj => e2eeSendEncryptedNow(obj));
+
+  // Procesar lo recibido en cola (si llegó antes de terminar la derivación)
+  const toRecv = E2EE.recvQueue.splice(0, E2EE.recvQueue.length);
+  toRecv.forEach(env => e2eeHandleEnvelope(env));
+}
+
+async function e2eeEncryptObject(obj) {
+  const iv = crypto.getRandomValues(new Uint8Array(12)); // 96-bit IV recomendado para GCM
+  const plaintext = _te.encode(JSON.stringify(obj));
+  const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, E2EE.aesKey, plaintext);
+  return { type: 'e2ee', v: 1, iv: abToB64(iv), data: abToB64(ciphertext) };
+}
+
+async function e2eeDecryptEnvelope(env) {
+  const iv = new Uint8Array(b64ToAb(env.iv));
+  const ciphertext = b64ToAb(env.data);
+  const plaintext = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, E2EE.aesKey, ciphertext);
+  const text = _td.decode(plaintext);
+  return JSON.parse(text);
+}
+
+function e2eeSendEncryptedNow(obj) {
+  if (!conn || conn.open === false) return;
+
+  // Encadenamos para mantener orden de envío (importante para mensajes consecutivos).
+  E2EE.sendChain = (E2EE.sendChain || Promise.resolve()).then(() => {
+    return e2eeEncryptObject(obj).then(env => {
+      try { conn.send(env); } catch (e) { console.error(e); addSystem('Fallo al enviar'); }
+    });
+  }).catch(err => {
+    console.error('E2EE encrypt failed', err);
+    addSystem('⚠️ Error cifrando. Continuando sin cifrado.');
+    E2EE.enabled = false;
+    try { conn.send(obj); } catch (e) { console.error(e); }
+  });
+}
+
+function e2eeHandleEnvelope(env) {
+  if (!E2EE.enabled) {
+    addSystem('⚠️ Mensaje cifrado recibido pero E2EE está desactivado.');
+    return;
+  }
+  if (!E2EE.ready) { E2EE.recvQueue.push(env); return; }
+
+  e2eeDecryptEnvelope(env).then(inner => {
+    // despachamos el mensaje real
+    handleIncoming(inner);
+  }).catch(err => {
+    console.error('E2EE decrypt failed', err);
+    addSystem('⚠️ No se pudo descifrar un mensaje (posible llave distinta).');
+  });
+}
+
+function e2eeShouldBypass(obj) {
+  // Mensajes necesarios para bootstrap no deben ir cifrados.
+  return !!(obj && (obj.type === 'kex1'));
+}
+
+
 /* ---------------------------- Util: IDs ---------------------------- */
 function generatePeerId() {
   const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -132,6 +355,8 @@ function bindConnection(c) {
 
   c.on('data', handleIncoming);
   c.on('open', () => {
+    e2eeReset();
+    e2eeStartHandshake().catch(() => { /* ignore */ });
     safeSend({ type: 'init', id: peer.id });
     safeSend({ type: 'sync_request' });
   });
@@ -154,6 +379,7 @@ function resetConnection() {
   if (conn) {
     try { conn.close(); } catch (e) { /* ignore */ }
   }
+  e2eeReset();
   conn = null; currentPeerId = null;
   if (connectBtn) connectBtn.hidden = false;
   if (disconnectBtn) disconnectBtn.hidden = true;
@@ -164,6 +390,9 @@ function resetConnection() {
 /* ---------------------------- Messaging core ---------------------------- */
 function handleIncoming(msg) {
   if (!msg) return;
+  // --- E2EE envelope / handshake ---
+  if (msg.type === 'kex1') { e2eeHandleKex1(msg); return; }
+  if (msg.type === 'e2ee') { e2eeHandleEnvelope(msg); return; }
   switch (msg.type) {
     case 'init':
       if (peerIdInput) peerIdInput.value = msg.id;
@@ -215,6 +444,38 @@ function handleIncoming(msg) {
 }
 function safeSend(obj) {
   if (!conn || conn.open === false) { addSystem('No hay conexión abierta'); return false; }
+
+  // E2EE: ciframos TODO lo que no sea handshake.
+  if (E2EE.enabled) {
+    if (!e2eeAvailable()) {
+      addSystem('⚠️ E2EE desactivado: WebCrypto requiere HTTPS (contexto seguro).');
+      E2EE.enabled = false;
+    }
+
+    // Si se desactivó arriba, enviamos en claro.
+    if (!E2EE.enabled) {
+      try { conn.send(obj); return true; } catch (e) { console.error(e); addSystem('Fallo al enviar'); return false; }
+    }
+
+    // bootstrap si aún no arrancó
+    if (!E2EE.started) { e2eeStartHandshake().catch(() => { /* ignore */ }); }
+
+    // handshake explícito sin cifrar
+    if (e2eeShouldBypass(obj)) {
+      try { conn.send(obj); return true; } catch (e) { console.error(e); addSystem('Fallo al enviar'); return false; }
+    }
+
+    // si la llave aún no está lista, ponemos en cola (manteniendo UX)
+    if (!E2EE.ready) {
+      E2EE.sendQueue.push(obj);
+      return true;
+    }
+
+    // enviar cifrado (async)
+    e2eeSendEncryptedNow(obj);
+    return true;
+  }
+
   try { conn.send(obj); return true; } catch (e) { console.error(e); addSystem('Fallo al enviar'); return false; }
 }
 
@@ -628,7 +889,7 @@ if (connectBtn) connectBtn.addEventListener('click', () => {
 
 if (disconnectBtn) disconnectBtn.addEventListener('click', () => {
   if (conn && conn.open) {
-    try { conn.send({ type: 'system', cmd: 'reload' }); } catch (e) { console.warn('no se pudo enviar reload', e); }
+    try { safeSend({ type: 'system', cmd: 'reload' }); } catch (e) { console.warn('no se pudo enviar reload', e); }
   }
   setTimeout(() => {
     try { if (peer) peer.destroy(); } catch (e) { /* ignore */ }
