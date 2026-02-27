@@ -146,11 +146,11 @@ async function e2eeTOFUCheck(peerId, idPubJwk) {
   const stored = sessionStorage.getItem(key);
   if (!stored) {
     sessionStorage.setItem(key, fp);
-    addSystem('🔑 Identidad del par guardada: ' + fp.slice(0, 12) + '…');
+    addSystem('🔑 Clave pública del par guardada durante la sesión: ' + fp.slice(0, 12) + '…');
     return true;
   }
   if (stored !== fp) {
-    addSystem('⛔ La identidad del par CAMBIÓ (posible MITM o reinstalación). Rechazando conexión.');
+    addSystem('⛔ La clave pública del par CAMBIÓ (posible MITM o reinstalación). Rechazando conexión.');
     return false;
   }
   return true;
