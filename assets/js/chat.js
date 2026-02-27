@@ -90,8 +90,8 @@ async function e2eeLoadOrCreateIdentity() {
   const PRIV_K = 'p2pchat_id_priv_v1';
 
   try {
-    const pubRaw = sessionStorage.getItem(PUB_K);
-    const privRaw = sessionStorage.getItem(PRIV_K);
+    const pubRaw = localStorage.getItem(PUB_K);
+    const privRaw = localStorage.getItem(PRIV_K);
 
     if (pubRaw && privRaw) {
       const pubJwk = JSON.parse(pubRaw);
@@ -108,8 +108,8 @@ async function e2eeLoadOrCreateIdentity() {
     const kp = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']);
     const pubJwk = await crypto.subtle.exportKey('jwk', kp.publicKey);
     const privJwk = await crypto.subtle.exportKey('jwk', kp.privateKey);
-    sessionStorage.setItem(PUB_K, JSON.stringify(pubJwk));
-    sessionStorage.setItem(PRIV_K, JSON.stringify(privJwk));
+    localStorage.setItem(PUB_K, JSON.stringify(pubJwk));
+    localStorage.setItem(PRIV_K, JSON.stringify(privJwk));
     E2EE.identity.keyPair = kp;
     E2EE.identity.pubJwk = pubJwk;
     E2EE.identity.fingerprint = await e2eeFingerprintJwk(pubJwk);
@@ -143,10 +143,10 @@ async function e2eeVerifyHandshake({ idPubJwk, sigB64, ecdhPubJwk, nonceB64, fro
 async function e2eeTOFUCheck(peerId, idPubJwk) {
   const key = 'p2pchat_tofu_' + String(peerId || 'unknown');
   const fp = await e2eeFingerprintJwk(idPubJwk);
-  const stored = sessionStorage.getItem(key);
+  const stored = localStorage.getItem(key);
   if (!stored) {
-    sessionStorage.setItem(key, fp);
-    addSystem('🔑 Identidad del par guardada: ' + fp.slice(0, 12) + '…');
+    localStorage.setItem(key, fp);
+    addSystem('🔑 Identidad del par guardada (TOFU): ' + fp.slice(0, 12) + '…');
     return true;
   }
   if (stored !== fp) {
@@ -370,9 +370,9 @@ async function e2eeMaybeFinalize() {
     const digest = await crypto.subtle.digest('SHA-256', sharedBits);
     const d = new Uint8Array(digest);
     const code = String(((d[0] << 16) | (d[1] << 8) | d[2]) % 1000000).padStart(6, '0');
-    addSystem('🔒 Cifrado activo. Código de verificación: ' + code);
+    addSystem('🔒 E2EE activo (AES‑GCM 256). Código de verificación: ' + code);
   } catch (_) {
-    addSystem('🔒 Cifrado activo.');
+    addSystem('🔒 E2EE activo (AES‑GCM 256).');
   }
 
   // Enviar lo que estaba en cola
@@ -686,6 +686,10 @@ function markMessageStatus(id, status) {
 function renderMessages() {
   messagesEl.innerHTML = '';
   for (const m of messageHistory) {
+    if (m.meta && m.meta.fileTransfer) {
+      renderFileProgressCardFromEntry(m);
+      continue;
+    }
     if (m.meta && m.meta.file) {
       renderFileCardFromEntry(m);
       continue;
@@ -974,22 +978,145 @@ function addFileMessage(obj, me) {
   renderFileCardFromEntry(entry);
 }
 
+
+/* Render a receiving file progress card (chunked incoming files) */
+function renderFileProgressCardFromEntry(entry) {
+  const ft = entry.meta && entry.meta.fileTransfer ? entry.meta.fileTransfer : null;
+  if (!ft) return;
+
+  const card = document.createElement('div');
+  card.className = 'file-card in';
+  card.setAttribute('data-msgid', entry.id);
+  card.setAttribute('role', 'group');
+  card.setAttribute('aria-label', `Recibiendo archivo: ${ft.name || 'archivo'}`);
+
+  const icon = document.createElement('div');
+  icon.className = 'file-icon';
+  icon.textContent = ft.name ? ft.name.slice(0, 2).toUpperCase() : 'F';
+  card.appendChild(icon);
+
+  const metaCol = document.createElement('div');
+  metaCol.className = 'file-meta';
+
+  const nameEl = document.createElement('div');
+  nameEl.className = 'file-name';
+  nameEl.textContent = ft.name || 'Archivo';
+  nameEl.style.fontWeight = '600';
+  metaCol.appendChild(nameEl);
+
+  const pct = ft.total ? Math.min(100, Math.floor((ft.received || 0) * 100 / ft.total)) : 0;
+  const approxBytes = (ft.size && ft.total) ? Math.min(ft.size, Math.round(ft.size * ((ft.received || 0) / ft.total))) : 0;
+
+  const textEl = document.createElement('div');
+  textEl.className = 'file-size file-progress-text';
+  textEl.textContent = ft.size ? `${pct}% · ${formatSize(approxBytes)} / ${formatSize(ft.size)}` : `${pct}%`;
+  metaCol.appendChild(textEl);
+
+  const bar = document.createElement('div');
+  bar.className = 'file-progress';
+  bar.style.height = '8px';
+  bar.style.borderRadius = '999px';
+  bar.style.overflow = 'hidden';
+  bar.style.marginTop = '8px';
+  bar.style.background = 'rgba(255,255,255,0.25)';
+
+  const fill = document.createElement('div');
+  fill.className = 'file-progress-fill';
+  fill.style.height = '100%';
+  fill.style.width = pct + '%';
+  fill.style.background = 'rgba(0,0,0,0.28)';
+  fill.style.transition = 'width 120ms linear';
+
+  bar.appendChild(fill);
+  metaCol.appendChild(bar);
+
+  card.appendChild(metaCol);
+  messagesEl.appendChild(card);
+  messagesArea.scrollTop = messagesArea.scrollHeight;
+}
+
+function updateFileProgressDOM(fileId, received, total, size) {
+  const card = messagesEl.querySelector(`[data-msgid="${fileId}"]`);
+  if (!card) return false;
+  const fill = card.querySelector('.file-progress-fill');
+  const textEl = card.querySelector('.file-progress-text');
+  const pct = total ? Math.min(100, Math.floor(received * 100 / total)) : 0;
+  const approxBytes = (size && total) ? Math.min(size, Math.round(size * (received / total))) : 0;
+  if (fill) fill.style.width = pct + '%';
+  if (textEl) textEl.textContent = size ? `${pct}% · ${formatSize(approxBytes)} / ${formatSize(size)}` : `${pct}%`;
+  return true;
+}
+
+function ensureIncomingFileProgressEntry(fileId, meta, total) {
+  if (messageHistory.some(m => m.id === fileId && m.meta && m.meta.fileTransfer)) return;
+  const entry = {
+    id: fileId,
+    text: meta.name || 'Archivo',
+    ts: Date.now(),
+    me: false,
+    status: 'receiving',
+    meta: { fileTransfer: { name: meta.name, mime: meta.mime, size: meta.size, received: 0, total: total || 0 } }
+  };
+  messageHistory.push(entry);
+  saveHistory(currentPeerId || null);
+  renderMessages();
+}
+
 /* ---------------------------- Chunked transfer (receiver) ---------------------------- */
 const incomingChunks = {}; // fileId -> {meta, parts: []}
 function handleIncomingChunk(msg) {
   const fileId = msg.fileId;
-  if (!incomingChunks[fileId]) incomingChunks[fileId] = { meta: { name: msg.name, mime: msg.mime, size: msg.size }, parts: [] };
-  incomingChunks[fileId].parts[msg.index] = msg.data;
-  const parts = incomingChunks[fileId].parts;
-  if (parts.filter(Boolean).length === msg.total) {
-    const full = parts.join('');
-    const dataUrl = full.startsWith('data:') ? full : ('data:' + msg.mime + ';base64,' + full);
-    const fileObj = { type: 'file', id: genMessageId(), name: msg.name, mime: msg.mime, size: msg.size, dataUrl };
-    addFileMessage(fileObj, false);
+  if (!fileId) return;
+
+  // init state + UI placeholder (once)
+  if (!incomingChunks[fileId]) {
+    incomingChunks[fileId] = {
+      meta: { name: msg.name, mime: msg.mime, size: msg.size, total: msg.total },
+      parts: new Array(msg.total),
+      received: 0
+    };
+    ensureIncomingFileProgressEntry(fileId, incomingChunks[fileId].meta, msg.total);
+  }
+
+  const st = incomingChunks[fileId];
+
+  // store part (avoid double counting)
+  if (st.parts[msg.index] == null) {
+    st.parts[msg.index] = msg.data;
+    st.received++;
+  }
+
+  // update progress UI (fast path: DOM update only)
+  updateFileProgressDOM(fileId, st.received, msg.total, st.meta.size);
+
+  // completion
+  if (st.received === msg.total) {
+    const full = st.parts.join('');
+    const dataUrl = full.startsWith('data:') ? full : ('data:' + (msg.mime || 'application/octet-stream') + ';base64,' + full);
+
+    // replace placeholder entry in history with the real file entry (keeps same id = fileId)
+    const fileObj = { type: 'file', id: fileId, name: msg.name, mime: msg.mime, size: msg.size, dataUrl };
+    const idx = messageHistory.findIndex(m => m.id === fileId && m.meta && m.meta.fileTransfer);
+    if (idx >= 0) {
+      messageHistory[idx] = {
+        id: fileId,
+        text: msg.name || 'Archivo',
+        ts: Date.now(),
+        me: false,
+        status: 'received',
+        meta: { file: fileObj }
+      };
+      saveHistory(currentPeerId || null);
+      renderMessages();
+    } else {
+      addFileMessage(fileObj, false);
+    }
+
     delete incomingChunks[fileId];
-    safeSend({ type: 'ack', id: fileObj.id });
+    safeSend({ type: 'ack', id: fileId });
   }
 }
+
 
 /* ---------------------------- Read receipts ---------------------------- */
 function requestReadReceipt(messageId) {
