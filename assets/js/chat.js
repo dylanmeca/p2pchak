@@ -146,7 +146,7 @@ async function e2eeTOFUCheck(peerId, idPubJwk) {
   const stored = sessionStorage.getItem(key);
   if (!stored) {
     sessionStorage.setItem(key, fp);
-    addSystem('🔑 Identidad del par guardada (TOFU): ' + fp.slice(0, 12) + '…');
+    addSystem('🔑 Identidad del par guardada: ' + fp.slice(0, 12) + '…');
     return true;
   }
   if (stored !== fp) {
