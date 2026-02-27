@@ -90,8 +90,8 @@ async function e2eeLoadOrCreateIdentity() {
   const PRIV_K = 'p2pchat_id_priv_v1';
 
   try {
-    const pubRaw = localStorage.getItem(PUB_K);
-    const privRaw = localStorage.getItem(PRIV_K);
+    const pubRaw = sessionStorage.getItem(PUB_K);
+    const privRaw = sessionStorage.getItem(PRIV_K);
 
     if (pubRaw && privRaw) {
       const pubJwk = JSON.parse(pubRaw);
@@ -108,8 +108,8 @@ async function e2eeLoadOrCreateIdentity() {
     const kp = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']);
     const pubJwk = await crypto.subtle.exportKey('jwk', kp.publicKey);
     const privJwk = await crypto.subtle.exportKey('jwk', kp.privateKey);
-    localStorage.setItem(PUB_K, JSON.stringify(pubJwk));
-    localStorage.setItem(PRIV_K, JSON.stringify(privJwk));
+    sessionStorage.setItem(PUB_K, JSON.stringify(pubJwk));
+    sessionStorage.setItem(PRIV_K, JSON.stringify(privJwk));
     E2EE.identity.keyPair = kp;
     E2EE.identity.pubJwk = pubJwk;
     E2EE.identity.fingerprint = await e2eeFingerprintJwk(pubJwk);
@@ -143,9 +143,9 @@ async function e2eeVerifyHandshake({ idPubJwk, sigB64, ecdhPubJwk, nonceB64, fro
 async function e2eeTOFUCheck(peerId, idPubJwk) {
   const key = 'p2pchat_tofu_' + String(peerId || 'unknown');
   const fp = await e2eeFingerprintJwk(idPubJwk);
-  const stored = localStorage.getItem(key);
+  const stored = sessionStorage.getItem(key);
   if (!stored) {
-    localStorage.setItem(key, fp);
+    sessionStorage.setItem(key, fp);
     addSystem('🔑 Identidad del par guardada (TOFU): ' + fp.slice(0, 12) + '…');
     return true;
   }
@@ -370,9 +370,9 @@ async function e2eeMaybeFinalize() {
     const digest = await crypto.subtle.digest('SHA-256', sharedBits);
     const d = new Uint8Array(digest);
     const code = String(((d[0] << 16) | (d[1] << 8) | d[2]) % 1000000).padStart(6, '0');
-    addSystem('🔒 E2EE activo (AES‑GCM 256). Código de verificación: ' + code);
+    addSystem('🔒 Cifrado activo. Código de verificación: ' + code);
   } catch (_) {
-    addSystem('🔒 E2EE activo (AES‑GCM 256).');
+    addSystem('🔒 Cifrado activo.');
   }
 
   // Enviar lo que estaba en cola
